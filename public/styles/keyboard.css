@@ -1,0 +1,65 @@
+.keyboard-panel {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+  margin: 24px 0 30px;
+}
+.keyboard-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 165px;
+}
+.keyboard-caption small {
+  font-size: 9px;
+  color: var(--muted);
+}
+.keyboard-caption label {
+  font-size: 10px;
+  color: var(--muted);
+}
+.keyboard-caption select {
+  padding: 2px 5px;
+  margin-left: 8px;
+  font-size: 10px;
+}
+#keyboard {
+  display: flex;
+  flex: 1;
+  max-width: 680px;
+  gap: 3px;
+  height: 66px;
+  position: relative;
+}
+.piano-key {
+  flex: 1;
+  padding: 0 0 5px;
+  border-radius: 0 0 4px 4px;
+  color: #536356;
+  background: #d9dece;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border-color: #d9dece;
+  min-width: 0;
+  font:
+    9px ui-monospace,
+    monospace;
+  touch-action: none;
+}
+.piano-key.black {
+  background: #29342d;
+  border-color: #3b4a3e;
+  height: 43px;
+  color: #8f9e8e;
+  margin-left: -12px;
+  margin-right: -12px;
+  z-index: 2;
+  flex: 0 0 20px;
+}
+.piano-key:hover,
+.piano-key.held {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1d2d1e;
+}

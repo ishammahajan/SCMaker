@@ -1,0 +1,235 @@
+.sequencer {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.sequencer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 20px;
+}
+.sequencer-toolbar h2 {
+  font-size: 17px;
+  margin-top: 6px;
+  font-weight: 550;
+}
+.sequencer-toolbar h2 .muted {
+  font-weight: 400;
+}
+.sequencer-toolbar .eyebrow {
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+.note-toolbar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  font-size: 10px;
+  color: var(--muted);
+}
+.note-toolbar label {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.note-toolbar input[type='number'] {
+  width: 44px;
+  padding: 4px;
+  font-size: 10px;
+}
+.note-toolbar input[type='range'] {
+  width: 62px;
+}
+.note-toolbar output {
+  width: 30px;
+}
+.note-toolbar button {
+  font-size: 10px;
+}
+.roll-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px 13px;
+  gap: 15px;
+  font-size: 9px;
+  color: var(--muted);
+}
+.roll-tools > div {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.roll-tools button {
+  font-size: 9px;
+  padding: 4px;
+}
+.roll-scroll {
+  overflow-x: auto;
+  background: #121a15;
+}
+.piano-roll {
+  display: grid;
+  grid-template-columns: 48px repeat(32, minmax(20px, 1fr));
+  grid-template-rows: 25px repeat(25, 17px);
+  gap: 1px;
+  min-width: 760px;
+  background: #253027;
+  position: relative;
+  isolation: isolate;
+}
+.step-label {
+  font:
+    8px ui-monospace,
+    monospace;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1b261d;
+  color: #7b8f7d;
+}
+.step-label.beat {
+  color: #cad7bf;
+}
+.step-label.current {
+  background: #526a35;
+  color: var(--accent);
+}
+.pitch-label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  font:
+    8px ui-monospace,
+    monospace;
+  color: #93a28c;
+  background: #1c281e;
+}
+.pitch-label.black {
+  background: #141e17;
+  color: #6f806e;
+}
+.cell {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  min-width: 0;
+  background: #18211a;
+  z-index: 1;
+}
+.cell.black {
+  background: #151e17;
+}
+.cell.beat {
+  border-left: 1px solid #354736;
+}
+.cell:hover {
+  background: #35482f;
+}
+.cell:focus-visible {
+  outline-offset: -2px;
+  z-index: 3;
+}
+.roll-note {
+  min-width: 0;
+  padding: 0 8px 0 4px;
+  position: relative;
+  border-radius: 3px;
+  border: 1px solid var(--track-color);
+  background: var(--track-color);
+  color: #182015;
+  text-align: left;
+  font:
+    8px ui-monospace,
+    monospace;
+  overflow: visible;
+  z-index: 4;
+  box-shadow: 0 1px 3px #0003;
+  margin: 1px;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+  touch-action: none;
+  user-select: none;
+}
+.roll-note:hover {
+  z-index: 5;
+  background: #f2f9db;
+  border-color: #f2f9db;
+}
+.roll-note.dragging {
+  cursor: grabbing;
+  opacity: 0.85 !important;
+  z-index: 7;
+}
+.roll-note.drag-blocked {
+  cursor: not-allowed;
+  outline: 2px solid #dd8585;
+  outline-offset: -2px;
+}
+.roll-note.selected:not(.drag-blocked) {
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+}
+.note-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.note-resize {
+  position: absolute;
+  right: -1px;
+  top: -1px;
+  bottom: -1px;
+  width: 7px;
+  cursor: ew-resize;
+  border-right: 2px solid #18201580;
+  border-radius: 0 3px 3px 0;
+}
+.roll-note.resizing {
+  cursor: ew-resize;
+}
+.note-remove {
+  position: absolute;
+  right: 8px;
+  bottom: 100%;
+  background: #f2f9db;
+  border-radius: 999px;
+  color: #182015;
+  font-size: 12px;
+  line-height: 10px;
+  opacity: 0;
+  padding: 0 2px;
+  pointer-events: none;
+}
+.roll-note:hover .note-remove,
+.roll-note:focus-visible .note-remove,
+.roll-note.selected .note-remove {
+  opacity: 0.85;
+  pointer-events: auto;
+}
+.note-remove:hover {
+  background: #182015;
+  color: #f2f9db;
+}
+.playhead {
+  z-index: 6;
+  background: #ccef8710;
+  border-left: 2px solid #d8f6a5;
+  pointer-events: none;
+}
+.sequencer-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 13px 18px;
+  font:
+    9px ui-monospace,
+    monospace;
+  color: var(--muted);
+  gap: 15px;
+}

@@ -1,0 +1,226 @@
+{
+  "version": 1,
+  "name": "First light",
+  "tempo": 108,
+  "tracks": [
+    {
+      "id": "t_bass",
+      "name": "Bass 01",
+      "recipe": {
+        "kind": "bass",
+        "wave": "saw",
+        "brightness": 1800,
+        "drive": 0.15,
+        "attack": 0.008,
+        "release": 0.24,
+        "detune": 0.002,
+        "decay": 0.2,
+        "sustain": 0.65
+      },
+      "code": "// SCMaker: bass. Velocity controls amplitude; gate controls note length.\nSynthDef(\\t_bass, { |out = 0, freq = 110, amp = 0.16, gate = 1, brightness = 1800, drive = 0.15, attack = 0.008, decay = 0.2, sustain = 0.65, release = 0.24, detune = 0.002|\n    var signal, envelope;\n    signal = Saw.ar(freq * [1 - detune, 1 + detune]);\n    signal = LPF.ar(signal, brightness.clip(120, 18000));\n    signal = (signal * (1 + (drive * 8))).tanh / (1 + (drive * 2));\n    envelope = EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate, doneAction: 2);\n    Out.ar(out, signal * envelope * amp);\n}).add;\n",
+      "volume": 0.7,
+      "reverb": 0.05,
+      "muted": false,
+      "notes": [
+        {
+          "id": "bass_0",
+          "start": 0,
+          "length": 2,
+          "midi": 36,
+          "velocity": 0.75
+        },
+        {
+          "id": "bass_1",
+          "start": 6,
+          "length": 2,
+          "midi": 36,
+          "velocity": 0.75
+        },
+        {
+          "id": "bass_2",
+          "start": 8,
+          "length": 2,
+          "midi": 43,
+          "velocity": 0.75
+        },
+        {
+          "id": "bass_3",
+          "start": 14,
+          "length": 2,
+          "midi": 39,
+          "velocity": 0.75
+        },
+        {
+          "id": "bass_4",
+          "start": 16,
+          "length": 2,
+          "midi": 36,
+          "velocity": 0.75
+        },
+        {
+          "id": "bass_5",
+          "start": 22,
+          "length": 2,
+          "midi": 46,
+          "velocity": 0.75
+        },
+        {
+          "id": "bass_6",
+          "start": 24,
+          "length": 2,
+          "midi": 43,
+          "velocity": 0.75
+        },
+        {
+          "id": "bass_7",
+          "start": 28,
+          "length": 2,
+          "midi": 39,
+          "velocity": 0.75
+        }
+      ],
+      "history": [
+        {
+          "prompt": "bass starting point",
+          "recipe": {
+            "kind": "bass",
+            "wave": "saw",
+            "brightness": 1800,
+            "drive": 0.15,
+            "attack": 0.008,
+            "release": 0.24,
+            "detune": 0.002,
+            "decay": 0.2,
+            "sustain": 0.65
+          },
+          "code": "// SCMaker: bass. Velocity controls amplitude; gate controls note length.\nSynthDef(\\t_bass, { |out = 0, freq = 110, amp = 0.16, gate = 1, brightness = 1800, drive = 0.15, attack = 0.008, decay = 0.2, sustain = 0.65, release = 0.24, detune = 0.002|\n    var signal, envelope;\n    signal = Saw.ar(freq * [1 - detune, 1 + detune]);\n    signal = LPF.ar(signal, brightness.clip(120, 18000));\n    signal = (signal * (1 + (drive * 8))).tanh / (1 + (drive * 2));\n    envelope = EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate, doneAction: 2);\n    Out.ar(out, signal * envelope * amp);\n}).add;\n"
+        }
+      ]
+    },
+    {
+      "id": "t_kick",
+      "name": "Kick 01",
+      "recipe": {
+        "kind": "kick",
+        "wave": "sine",
+        "brightness": 900,
+        "drive": 0.2,
+        "attack": 0.002,
+        "release": 0.1,
+        "detune": 0,
+        "decay": 0.25,
+        "sustain": 0
+      },
+      "code": "// SCMaker: kick. Velocity controls amplitude; gate controls note length.\nSynthDef(\\t_kick, { |out = 0, freq = 110, amp = 0.16, gate = 1, brightness = 900, drive = 0.2, attack = 0.002, decay = 0.25, sustain = 0, release = 0.1, detune = 0|\n    var signal, envelope;\n    signal = SinOsc.ar(freq * EnvGen.kr(Env([3, 1], [0.045], -6))) ! 2;\n    signal = LPF.ar(signal, brightness.clip(120, 18000));\n    signal = (signal * (1 + (drive * 8))).tanh / (1 + (drive * 2));\n    envelope = EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate, doneAction: 2);\n    Out.ar(out, signal * envelope * amp);\n}).add;\n",
+      "volume": 0.7,
+      "reverb": 0.05,
+      "muted": false,
+      "notes": [
+        {
+          "id": "kick_0",
+          "start": 0,
+          "length": 1,
+          "midi": 36,
+          "velocity": 0.9
+        },
+        {
+          "id": "kick_1",
+          "start": 8,
+          "length": 1,
+          "midi": 36,
+          "velocity": 0.9
+        },
+        {
+          "id": "kick_2",
+          "start": 16,
+          "length": 1,
+          "midi": 36,
+          "velocity": 0.9
+        },
+        {
+          "id": "kick_3",
+          "start": 24,
+          "length": 1,
+          "midi": 36,
+          "velocity": 0.9
+        }
+      ],
+      "history": [
+        {
+          "prompt": "kick starting point",
+          "recipe": {
+            "kind": "kick",
+            "wave": "sine",
+            "brightness": 900,
+            "drive": 0.2,
+            "attack": 0.002,
+            "release": 0.1,
+            "detune": 0,
+            "decay": 0.25,
+            "sustain": 0
+          },
+          "code": "// SCMaker: kick. Velocity controls amplitude; gate controls note length.\nSynthDef(\\t_kick, { |out = 0, freq = 110, amp = 0.16, gate = 1, brightness = 900, drive = 0.2, attack = 0.002, decay = 0.25, sustain = 0, release = 0.1, detune = 0|\n    var signal, envelope;\n    signal = SinOsc.ar(freq * EnvGen.kr(Env([3, 1], [0.045], -6))) ! 2;\n    signal = LPF.ar(signal, brightness.clip(120, 18000));\n    signal = (signal * (1 + (drive * 8))).tanh / (1 + (drive * 2));\n    envelope = EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate, doneAction: 2);\n    Out.ar(out, signal * envelope * amp);\n}).add;\n"
+        }
+      ]
+    },
+    {
+      "id": "t_pad",
+      "name": "Pad 01",
+      "recipe": {
+        "kind": "pad",
+        "wave": "saw",
+        "brightness": 2600,
+        "drive": 0,
+        "attack": 0.7,
+        "release": 1.8,
+        "detune": 0.009,
+        "decay": 0.6,
+        "sustain": 0.8
+      },
+      "code": "// SCMaker: pad. Velocity controls amplitude; gate controls note length.\nSynthDef(\\t_pad, { |out = 0, freq = 110, amp = 0.16, gate = 1, brightness = 2600, drive = 0, attack = 0.7, decay = 0.6, sustain = 0.8, release = 1.8, detune = 0.009|\n    var signal, envelope;\n    signal = Saw.ar(freq * [1 - detune, 1 + detune]);\n    signal = LPF.ar(signal, brightness.clip(120, 18000));\n    signal = (signal * (1 + (drive * 8))).tanh / (1 + (drive * 2));\n    envelope = EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate, doneAction: 2);\n    Out.ar(out, signal * envelope * amp);\n}).add;\n",
+      "volume": 0.7,
+      "reverb": 0.35,
+      "muted": false,
+      "notes": [
+        {
+          "id": "pad_0",
+          "start": 0,
+          "length": 28,
+          "midi": 48,
+          "velocity": 0.45
+        },
+        {
+          "id": "pad_1",
+          "start": 0,
+          "length": 28,
+          "midi": 55,
+          "velocity": 0.45
+        },
+        {
+          "id": "pad_2",
+          "start": 0,
+          "length": 28,
+          "midi": 60,
+          "velocity": 0.45
+        }
+      ],
+      "history": [
+        {
+          "prompt": "pad starting point",
+          "recipe": {
+            "kind": "pad",
+            "wave": "saw",
+            "brightness": 2600,
+            "drive": 0,
+            "attack": 0.7,
+            "release": 1.8,
+            "detune": 0.009,
+            "decay": 0.6,
+            "sustain": 0.8
+          },
+          "code": "// SCMaker: pad. Velocity controls amplitude; gate controls note length.\nSynthDef(\\t_pad, { |out = 0, freq = 110, amp = 0.16, gate = 1, brightness = 2600, drive = 0, attack = 0.7, decay = 0.6, sustain = 0.8, release = 1.8, detune = 0.009|\n    var signal, envelope;\n    signal = Saw.ar(freq * [1 - detune, 1 + detune]);\n    signal = LPF.ar(signal, brightness.clip(120, 18000));\n    signal = (signal * (1 + (drive * 8))).tanh / (1 + (drive * 2));\n    envelope = EnvGen.kr(Env.adsr(attack, decay, sustain, release), gate, doneAction: 2);\n    Out.ar(out, signal * envelope * amp);\n}).add;\n"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,240 @@
+@media (min-width: 1500px) {
+  main {
+    padding: 35px 45px;
+  }
+  .sound-columns {
+    gap: 35px;
+  }
+}
+@media (max-width: 1150px) {
+  .topbar {
+    gap: 16px;
+    padding: 15px 18px;
+  }
+  .topbar > button kbd {
+    display: none;
+  }
+  .project-title {
+    padding-left: 15px;
+  }
+  .workspace {
+    grid-template-columns: 185px minmax(0, 1fr);
+  }
+  main {
+    padding: 25px 20px;
+  }
+  .sound-columns {
+    grid-template-columns: minmax(0, 1.5fr) minmax(220px, 1fr);
+    gap: 20px;
+  }
+  .note-toolbar {
+    gap: 7px;
+  }
+  .roll-tools {
+    align-items: flex-start;
+  }
+  .keyboard-caption {
+    min-width: 145px;
+  }
+  .keyboard-caption kbd {
+    display: block;
+    margin-top: 4px;
+  }
+}
+@media (max-width: 900px) {
+  .sound-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .controls-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 25px;
+    padding: 8px;
+  }
+  .controls-panel .panel-heading,
+  .control-hint {
+    grid-column: 1/-1;
+  }
+  .controls-panel .wave-label {
+    grid-column: 1/-1;
+    margin: 12px 0;
+  }
+  #controls {
+    grid-column: 1/-1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 22px;
+  }
+  .control-row {
+    gap: 8px;
+    margin: 12px 0;
+    grid-template-columns: 60px 1fr 45px;
+  }
+  .topbar {
+    flex-wrap: wrap;
+  }
+  .project-title {
+    flex: 1;
+  }
+  .transport {
+    margin-left: auto;
+  }
+  .topbar > button {
+    margin-left: auto;
+  }
+  .sequencer-toolbar {
+    flex-wrap: wrap;
+  }
+  .roll-tools {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .keyboard-panel {
+    gap: 15px;
+  }
+  .keyboard-caption {
+    min-width: 125px;
+  }
+  .keyboard-caption small {
+    max-width: 125px;
+  }
+}
+@media (max-width: 640px) {
+  .topbar {
+    gap: 15px;
+    padding: 14px;
+  }
+  .brand {
+    font-size: 15px;
+  }
+  .project-title {
+    max-width: 45%;
+    margin-left: auto;
+  }
+  .transport {
+    margin: 0;
+    flex: 1;
+  }
+  .topbar > button {
+    font-size: 11px;
+    padding: 8px;
+  }
+  .workspace {
+    display: block;
+  }
+  .sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 16px;
+  }
+  .sidebar > .section-label {
+    margin-bottom: 10px;
+  }
+  .sidebar #tracks {
+    display: flex;
+    overflow-x: auto;
+    gap: 10px;
+  }
+  .track-card {
+    min-width: 165px;
+    margin: 0;
+  }
+  .track-control {
+    margin-top: 10px;
+  }
+  .add-track {
+    margin-top: 10px;
+    padding: 9px;
+  }
+  .sidebar-bottom {
+    padding: 12px 0 0;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .text-button {
+    font-size: 10px;
+    padding: 4px 0;
+  }
+  main {
+    padding: 20px 14px;
+  }
+  .instrument-heading {
+    margin-bottom: 20px;
+  }
+  .sound-workshop {
+    padding: 20px 16px;
+    width: calc(100% - 20px);
+    max-height: calc(100dvh - 20px);
+  }
+  .instrument-actions button {
+    font-size: 11px;
+  }
+  .prompt-panel {
+    padding: 16px;
+  }
+  .prompt-footer {
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .prompt-footer > span {
+    font-size: 9px;
+  }
+  .prompt-footer .primary {
+    font-size: 11px;
+    padding: 10px;
+  }
+  .version-row {
+    gap: 7px;
+  }
+  .version-row label {
+    font-size: 7px;
+  }
+  #controls {
+    grid-template-columns: 1fr;
+  }
+  .keyboard-panel {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .keyboard-caption {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+  }
+  .keyboard-caption small {
+    max-width: none;
+  }
+  .keyboard-caption kbd {
+    display: inline;
+  }
+  #keyboard {
+    min-height: 66px;
+  }
+  .sequencer-toolbar {
+    padding: 16px;
+  }
+  .note-toolbar {
+    flex-wrap: wrap;
+  }
+  .roll-tools {
+    padding: 0 16px 12px;
+  }
+  .sequencer-footer {
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 8px;
+  }
+  .statusbar {
+    padding: 12px 14px;
+    flex-wrap: wrap;
+    font-size: 9px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

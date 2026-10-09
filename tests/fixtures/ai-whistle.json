@@ -1,0 +1,52 @@
+{
+  "recipe": {
+    "kind": "custom",
+    "wave": "sine",
+    "brightness": 3400,
+    "drive": 0.08,
+    "attack": 0.07,
+    "release": 0.22,
+    "detune": 0.001,
+    "decay": 0.18,
+    "sustain": 0.85,
+    "graph": {
+      "nodes": [
+        {
+          "op": "lfo",
+          "args": [5.5]
+        },
+        {
+          "op": "multiply",
+          "args": ["n0", 6]
+        },
+        {
+          "op": "add",
+          "args": ["freq", "n1"]
+        },
+        {
+          "op": "sine",
+          "args": ["n2"]
+        },
+        {
+          "op": "noise",
+          "args": []
+        },
+        {
+          "op": "bandpass",
+          "args": ["n4", "freq", 0.25]
+        },
+        {
+          "op": "multiply",
+          "args": ["n5", 0.18]
+        },
+        {
+          "op": "add",
+          "args": ["n3", "n6"]
+        }
+      ]
+    }
+  },
+  "explanation": "Breathy synthesized whistle approximation, not a real recording: pure sine carries pitch with soft 5.5Hz vibrato, plus quiet pitch-tracking bandpassed noise for breath.",
+  "provider": "OpenCode Go",
+  "model": "muse-spark-1.3-contributor"
+}

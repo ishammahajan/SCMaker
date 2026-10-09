@@ -1,0 +1,92 @@
+{
+  "recipe": {
+    "kind": "custom",
+    "wave": "sine",
+    "brightness": 2600,
+    "drive": 0.2,
+    "attack": 0.06,
+    "release": 0.3,
+    "detune": 0.004,
+    "decay": 0.25,
+    "sustain": 0.7,
+    "graph": {
+      "nodes": [
+        {
+          "op": "lfo",
+          "args": [4.7]
+        },
+        {
+          "op": "multiply",
+          "args": ["n0", 0.35]
+        },
+        {
+          "op": "multiply",
+          "args": ["n1", "freq"]
+        },
+        {
+          "op": "add",
+          "args": ["freq", "n2"]
+        },
+        {
+          "op": "lfo",
+          "args": [6.2]
+        },
+        {
+          "op": "multiply",
+          "args": ["n4", 0.03]
+        },
+        {
+          "op": "multiply",
+          "args": ["n5", "freq"]
+        },
+        {
+          "op": "add",
+          "args": ["n3", "n6"]
+        },
+        {
+          "op": "saw",
+          "args": ["n7"]
+        },
+        {
+          "op": "multiply",
+          "args": ["n0", 280]
+        },
+        {
+          "op": "add",
+          "args": [850, "n9"]
+        },
+        {
+          "op": "formant",
+          "args": ["n7", "n10", 130]
+        },
+        {
+          "op": "formant",
+          "args": ["n7", 2250, 180]
+        },
+        {
+          "op": "add",
+          "args": ["n11", "n12"]
+        },
+        {
+          "op": "multiply",
+          "args": ["n13", 0.8]
+        },
+        {
+          "op": "multiply",
+          "args": ["n0", 0.25]
+        },
+        {
+          "op": "add",
+          "args": [0.75, "n15"]
+        },
+        {
+          "op": "multiply",
+          "args": ["n14", "n16"]
+        }
+      ]
+    }
+  },
+  "explanation": "Synthesized yodel approximation: saw voice source pitch-jumps via 4.7Hz LFO at +/-35% for chest/head alternation plus 6.2Hz vibrato, dual formants with one morphing 570-1130Hz for changing O-A vowels and fixed high formant, synced tremolo for loud chest/soft head.",
+  "provider": "OpenCode Go",
+  "model": "muse-spark-1.3-contributor"
+}

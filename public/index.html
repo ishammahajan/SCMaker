@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#111715" />
+    <title>SCMaker · Sound into music</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="SCMaker home">
+        <span class="brand-mark" aria-hidden="true">∿</span>
+        SC
+        <span>MAKER</span>
+      </a>
+      <div class="project-title">
+        <label class="sr-only" for="project-name">Project name</label>
+        <input id="project-name" value="Loading…" maxlength="100" />
+        <span id="saved-state">Loading</span>
+      </div>
+      <div class="transport">
+        <label class="tempo-label" for="tempo">
+          BPM
+          <input id="tempo" type="number" min="40" max="240" value="108" />
+        </label>
+        <button id="play" class="primary transport-play" disabled aria-label="Play loop">
+          <span aria-hidden="true">▶</span>
+          Play
+        </button>
+        <button id="stop" class="square" disabled aria-label="Stop playback">■</button>
+        <button id="record" class="record" disabled>
+          <span class="record-dot" aria-hidden="true"></span>
+          Record
+        </button>
+      </div>
+      <button id="save" class="outline">
+        Save project
+        <kbd>⌘ / Ctrl S</kbd>
+      </button>
+    </header>
+    <div class="workspace">
+      <aside class="sidebar" aria-label="Project instruments">
+        <div class="section-label">
+          INSTRUMENTS
+          <span id="track-count">0 / 4</span>
+        </div>
+        <div id="tracks"></div>
+        <button id="add-track" class="add-track">＋ Add instrument</button>
+        <div class="sidebar-bottom">
+          <button id="export-project" class="text-button">↓ Export project (.json)</button>
+          <button id="import-project" class="text-button">↑ Open project file</button>
+          <input type="file" id="project-file" accept=".json,application/json" hidden />
+          <button id="new-project" class="text-button">＋ New empty project</button>
+        </div>
+      </aside>
+      <main>
+        <dialog
+          id="sound-dialog"
+          class="sound-workshop"
+          aria-labelledby="instrument-heading"
+          aria-describedby="workshop-note"
+        >
+          <div class="instrument-heading">
+            <div>
+              <div class="eyebrow">
+                <span id="sound-kind">BASS</span>
+              </div>
+              <h2 id="instrument-heading">Bass 01</h2>
+            </div>
+            <div class="instrument-actions">
+              <button id="rename-track" class="subtle">Rename</button>
+              <button
+                id="code-toggle"
+                class="subtle"
+                aria-expanded="false"
+                aria-controls="code-panel"
+              >
+                〈/〉 SynthDef
+              </button>
+              <button id="close-workshop" class="outline">Back to music</button>
+            </div>
+          </div>
+          <p id="workshop-note" class="muted workshop-note">
+            Previews stay unapplied until kept. Direct edits change the current sound, not its
+            notes.
+          </p>
+          <div class="sound-columns">
+            <div class="prompt-panel">
+              <div class="panel-heading">
+                <h2>Describe a sound</h2>
+              </div>
+              <form id="prompt-form">
+                <label for="prompt-provider">Interpreter</label>
+                <select id="prompt-provider">
+                  <option value="llm">AI · OpenCode Go / Muse Spark</option>
+                  <option value="local">Local vocabulary · no network</option>
+                </select>
+                <label for="prompt-mode">Action (AI)</label>
+                <select id="prompt-mode">
+                  <option value="refine">Refine current instrument</option>
+                  <option value="create">Create a new custom sound</option>
+                </select>
+                <label for="prompt" class="sr-only">Describe or refine the selected sound</label>
+                <textarea
+                  id="prompt"
+                  rows="3"
+                  maxlength="1000"
+                  autofocus
+                  placeholder="A breathy whistling sound, or a yodelling voice with changing vowels…"
+                ></textarea>
+                <div class="prompt-footer">
+                  <span>
+                    AI sends your description and sound recipe to OpenCode Go. Contributor prompts
+                    and outputs may be used for model training.
+                    <button
+                      type="button"
+                      id="vocabulary-toggle"
+                      class="inline-button"
+                      aria-expanded="false"
+                      aria-controls="vocabulary"
+                    >
+                      About interpreters
+                    </button>
+                  </span>
+                  <button id="build" class="primary" type="submit">
+                    Build preview
+                    <span aria-hidden="true">↗</span>
+                  </button>
+                </div>
+              </form>
+              <div id="vocabulary" hidden class="vocabulary">
+                AI builds validated synthesis graphs, not executable model-written code. Vocal
+                sounds are synthesized approximations. Choose Create for a new sound or Refine to
+                keep and modify the current instrument. The local interpreter is offline and only
+                understands bass, pad, pluck, kick, snare, hat, sine, saw, pulse, triangle, warm,
+                rounder, bright, gritty, clean, hollow, lush, and basic envelope changes.
+              </div>
+              <div class="prompt-examples">
+                <button data-prompt="Make it rounder and shorten the release">
+                  Rounder + shorter
+                </button>
+                <button data-prompt="Make it brighter and slightly gritty">Bright + gritty</button>
+                <button data-prompt="A lush pad with a slow attack">Lush pad</button>
+              </div>
+              <div id="draft-panel" class="draft-panel" hidden>
+                <div>
+                  <strong>New sound, not yet applied</strong>
+                  <p id="draft-explanation"></p>
+                </div>
+                <div class="draft-actions">
+                  <button id="audition-original" class="outline">▶ Current</button>
+                  <button id="audition-draft" class="outline">▶ Preview</button>
+                  <button id="apply-draft" class="primary">Keep this sound</button>
+                  <button id="discard-draft" class="subtle">Discard</button>
+                </div>
+              </div>
+              <div class="version-row">
+                <label for="history">SOUND HISTORY</label>
+                <select id="history" aria-label="Sound version"></select>
+                <button id="restore-version" class="subtle">Restore</button>
+              </div>
+            </div>
+            <div class="controls-panel">
+              <div class="panel-heading">
+                <h2>Fine tune</h2>
+                <button id="audition" class="subtle">▶ Audition</button>
+              </div>
+              <label class="wave-label" for="wave">
+                Oscillator
+                <select id="wave">
+                  <option value="saw">Saw</option>
+                  <option value="sine">Sine</option>
+                  <option value="pulse">Pulse</option>
+                  <option value="triangle">Triangle</option>
+                </select>
+              </label>
+              <p id="percussion-note" class="control-hint" hidden>
+                Drums use a fixed sine/noise source. Filter, drive, and envelopes still apply.
+              </p>
+              <div id="controls"></div>
+            </div>
+          </div>
+          <div id="code-panel" hidden class="code-panel">
+            <div class="panel-heading">
+              <h2>SynthDef</h2>
+              <button id="export-code" class="outline">↓ Export .scd</button>
+            </div>
+            <p class="muted">Export to edit in SuperCollider. Custom code cannot run here.</p>
+            <pre><code id="synth-code"></code></pre>
+          </div>
+        </dialog>
+        <section class="sequencer" aria-labelledby="sequencer-heading">
+          <div class="sequencer-toolbar">
+            <div>
+              <div class="eyebrow">2 bars · 1/16 grid</div>
+              <h2 id="sequencer-heading">
+                Bass 01
+                <span class="muted">sequence</span>
+              </h2>
+            </div>
+            <div class="note-toolbar">
+              <label for="note-length">
+                Length
+                <input id="note-length" type="number" min="1" max="32" value="2" />
+                steps
+              </label>
+              <label for="note-velocity">
+                Velocity
+                <input id="note-velocity" type="range" min="5" max="100" value="75" />
+                <output id="velocity-value">75%</output>
+              </label>
+              <button
+                id="record-notes"
+                class="outline"
+                aria-pressed="false"
+                title="R: record / stop. Ctrl+R: replace the previous pass."
+                aria-keyshortcuts="R Control+R"
+                disabled
+              >
+                Record notes
+              </button>
+              <button id="delete-note" class="subtle" disabled>Delete note</button>
+              <button
+                id="edit-sound"
+                class="outline"
+                aria-haspopup="dialog"
+                aria-controls="sound-dialog"
+                disabled
+              >
+                Edit sound
+              </button>
+            </div>
+          </div>
+          <div class="roll-tools">
+            <span>Click to add. Drag notes to move them. Hover a note for × delete.</span>
+            <div>
+              <button id="octave-down" class="subtle" aria-label="Move piano roll down an octave">
+                − Octave
+              </button>
+              <span id="roll-range"></span>
+              <button id="octave-up" class="subtle" aria-label="Move piano roll up an octave">
+                ＋ Octave
+              </button>
+              <button id="clear-notes" class="subtle">Clear notes</button>
+            </div>
+          </div>
+          <div class="roll-scroll">
+            <div id="piano-roll" class="piano-roll" aria-label="Piano roll"></div>
+          </div>
+          <div class="sequencer-footer">
+            <span id="note-count">0 notes</span>
+            <span>
+              <kbd>Space</kbd>
+              play / stop
+              <span class="slash">·</span>
+              <kbd>1–4</kbd>
+              select instrument
+              <span class="slash">·</span>
+              <kbd>Esc</kbd>
+              stop
+            </span>
+          </div>
+        </section>
+        <div class="keyboard-panel">
+          <div class="keyboard-caption">
+            <small>
+              Hold keys
+              <kbd>A W S E D F T G Y H U J K</kbd>
+            </small>
+            <label for="keyboard-octave">
+              Octave
+              <select id="keyboard-octave">
+                <option value="36">2</option>
+                <option value="48">3</option>
+                <option value="60">4</option>
+                <option value="72">5</option>
+              </select>
+            </label>
+          </div>
+          <div id="keyboard" aria-label="Audition keyboard"></div>
+        </div>
+      </main>
+    </div>
+    <footer class="statusbar">
+      <div>
+        <span id="engine-light" class="status-light waiting"></span>
+        <span id="engine-status">Starting SuperCollider…</span>
+        <button
+          id="engine-log-toggle"
+          class="inline-button"
+          aria-expanded="false"
+          aria-controls="engine-log"
+        >
+          Engine log
+        </button>
+      </div>
+      <div id="recording-result"></div>
+    </footer>
+    <pre id="engine-log" class="engine-log" hidden></pre>
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+    <dialog id="add-dialog">
+      <form id="add-form">
+        <h2>Add instrument</h2>
+        <label for="new-name">
+          Name
+          <input id="new-name" maxlength="60" value="Voice 01" required />
+        </label>
+        <label for="new-kind">
+          Starting point
+          <select id="new-kind">
+            <option value="custom">Custom · describe with AI</option>
+            <option value="bass">Bass</option>
+            <option value="pad">Pad</option>
+            <option value="pluck">Pluck</option>
+            <option value="kick">Kick</option>
+            <option value="snare">Snare</option>
+            <option value="hat">Hat</option>
+          </select>
+        </label>
+        <div class="dialog-actions">
+          <button id="cancel-add" type="button" class="outline">Cancel</button>
+          <button type="submit" class="primary">Add instrument</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>

@@ -1,0 +1,83 @@
+.statusbar {
+  border-top: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font:
+    10px ui-monospace,
+    monospace;
+  color: var(--muted);
+  gap: 18px;
+}
+.statusbar .inline-button {
+  color: #7f977c;
+  margin-left: 12px;
+  font-size: 9px;
+}
+.notice {
+  position: fixed;
+  bottom: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  max-width: min(620px, 90vw);
+  padding: 14px 20px;
+  border-radius: 8px;
+  background: #344529;
+  color: var(--text);
+  box-shadow: 0 7px 30px #0005;
+  border: 1px solid #70804e;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.notice.error {
+  background: #422a26;
+  border-color: #9a665c;
+}
+.engine-log {
+  margin: 0;
+  padding: 20px;
+  background: #0b100c;
+  color: #a1b599;
+  font:
+    10px/1.7 ui-monospace,
+    monospace;
+  max-height: 300px;
+  overflow: auto;
+}
+dialog {
+  border: 1px solid #596b4b;
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 28px;
+  min-width: 340px;
+}
+dialog::backdrop {
+  background: #080e0bc0;
+  backdrop-filter: blur(3px);
+}
+#add-dialog h2 {
+  font-size: 24px;
+  margin: 12px 0 25px;
+}
+#add-dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  margin-bottom: 18px;
+  color: var(--muted);
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 25px;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}

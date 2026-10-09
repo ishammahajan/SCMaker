@@ -1,0 +1,11 @@
+{
+  "singleQuote": true,
+  "trailingComma": "all",
+  "printWidth": 100,
+  "overrides": [
+    {
+      "files": "public/index.html",
+      "options": { "htmlWhitespaceSensitivity": "ignore" }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, readFile } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, mkdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import http from 'node:http';
 import path from 'node:path';
@@ -15,6 +15,11 @@ test('local API persists projects and enforces its trust boundary', async () => 
     run: (fn) => fn(),
     sync: async () => {},
     play: async () => {},
+    startRecording: async (format) => {
+      engine.lastRecordingFormat = format;
+      return 'take-2026-01-01T00-00-00-000Z.wav';
+    },
+    stopRecording: async () => 'take-2026-01-01T00-00-00-000Z.mp3',
     startNoteCapture: async (project, trackId, velocity) => {
       engine.lastCapture = { project, trackId, velocity };
     },
@@ -61,6 +66,36 @@ test('local API persists projects and enforces its trust boundary', async () => 
     );
     assert.equal((await fetch(`${base}/data/project.json`)).status, 404);
     assert.equal((await post('eval', { code: '0.exit;' })).status, 404);
+    assert.equal((await post('record/start', {})).status, 200);
+    assert.equal(engine.lastRecordingFormat, 'mp3');
+    for (const format of ['mp3', 'wav', 'flac']) {
+      assert.equal((await post('record/start', { format })).status, 200);
+      assert.equal(engine.lastRecordingFormat, format);
+    }
+    for (const format of [null, 'ogg', '../wav', 1])
+      assert.equal((await post('record/start', { format })).status, 400);
+    assert.equal((await post('record/start', {}, { 'X-SCMaker-Token': '' })).status, 403);
+    assert.equal(
+      (await (await post('record/stop', {})).json()).url,
+      '/api/recordings/take-2026-01-01T00-00-00-000Z.mp3',
+    );
+    await mkdir(path.join(directory, 'recordings'));
+    for (const [format, mime] of [
+      ['mp3', 'audio/mpeg'],
+      ['wav', 'audio/wav'],
+      ['flac', 'audio/flac'],
+    ]) {
+      const name = `take-2026-01-01T00-00-00-000Z.${format}`;
+      await writeFile(path.join(directory, 'recordings', name), 'test audio');
+      const response = await fetch(`${base}/api/recordings/${name}`);
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get('content-type'), mime);
+      assert.equal(await response.text(), 'test audio');
+      engine.recording = name;
+      assert.equal((await fetch(`${base}/api/recordings/${name}`)).status, 404);
+      engine.recording = null;
+    }
+    assert.equal((await fetch(`${base}/api/recordings/take-123.ogg`)).status, 404);
     const captureInput = { project, trackId: project.tracks[0].id, velocity: 0.75 };
     assert.equal((await post('notes/start', captureInput)).status, 200);
     assert.deepEqual(engine.lastCapture, captureInput);

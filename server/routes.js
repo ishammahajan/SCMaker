@@ -67,7 +67,9 @@ export function createApiRoutes({ engine, projects, token, dataDir, generateInst
       return json(response, 200, { ok: true });
     }
     if (pathname === '/api/record/start') {
-      const name = await engine.run(() => engine.startRecording());
+      const format = input.format === undefined ? 'mp3' : input.format;
+      if (!['mp3', 'wav', 'flac'].includes(format)) throw new Error('Unknown recording format.');
+      const name = await engine.run(() => engine.startRecording(format));
       return json(response, 200, { name });
     }
     if (pathname === '/api/record/stop') {
@@ -90,12 +92,14 @@ export function createApiRoutes({ engine, projects, token, dataDir, generateInst
     }
     if (pathname.startsWith('/api/recordings/')) {
       const name = pathname.slice('/api/recordings/'.length);
-      if (!/^take-[0-9TZ-]+\.wav$/.test(name) || engine.recording === name)
+      if (!/^take-[0-9TZ-]+\.(wav|mp3|flac)$/.test(name) || engine.recording === name)
         return json(response, 404, { error: 'Recording is unavailable or still open.' });
       const file = path.join(dataDir, 'recordings', name);
       const size = (await stat(file)).size;
       response.writeHead(200, {
-        'Content-Type': 'audio/wav',
+        'Content-Type': { wav: 'audio/wav', mp3: 'audio/mpeg', flac: 'audio/flac' }[
+          path.extname(name).slice(1)
+        ],
         'Content-Length': size,
         'Content-Disposition': `attachment; filename="${name}"`,
       });

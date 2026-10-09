@@ -27,7 +27,7 @@ try {
   }
   // Each custom instrument must produce signal on its own, not hide behind stock tracks.
   for (const track of customTracks) {
-    const take = await engine.run(() => engine.startRecording());
+    const take = await engine.run(() => engine.startRecording('wav'));
     await engine.run(() => engine.note(track, 60, `voice_${track.id}`, true));
     await new Promise((resolve) => setTimeout(resolve, 650));
     await engine.run(() => engine.note(track, 60, `voice_${track.id}`, false));
@@ -52,7 +52,7 @@ try {
   const project = defaultProject();
   project.tracks[0].recipe = customTracks[0].recipe;
   project.tracks[0].code = synthDef(project.tracks[0].id, project.tracks[0].recipe);
-  const name = await engine.run(() => engine.startRecording());
+  const name = await engine.run(() => engine.startRecording('wav'));
   await engine.run(() => engine.play(project));
   await new Promise((resolve) => setTimeout(resolve, 2200));
   assert.ok(engine.step > 0, 'The SuperCollider clock must advance.');

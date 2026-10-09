@@ -31,6 +31,12 @@
           Play
         </button>
         <button id="stop" class="square" disabled aria-label="Stop playback">■</button>
+        <label class="sr-only" for="recording-format">Recording format</label>
+        <select id="recording-format" title="Recording format">
+          <option value="mp3" selected>MP3</option>
+          <option value="wav">WAV</option>
+          <option value="flac">FLAC</option>
+        </select>
         <button id="record" class="record" disabled>
           <span class="record-dot" aria-hidden="true"></span>
           Record

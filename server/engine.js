@@ -1,7 +1,8 @@
 import dgram from 'node:dgram';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn, spawnSync, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { randomBytes } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { encodeOSC, decodeOSC } from './osc.js';
 import { synthDef } from '../shared/music.js';
@@ -19,6 +20,7 @@ import {
 export { bootstrap, scString } from './supercollider.js';
 
 // All interpolated code comes from validated numeric recipes or generated identifiers.
+const executeFile = promisify(execFile);
 const hasCommand = (name) => spawnSync('which', [name], { stdio: 'ignore' }).status === 0;
 async function freePort() {
   const socket = dgram.createSocket('udp4');
@@ -274,13 +276,17 @@ export class Engine {
     // round trip on the keyboard input path.
     await this.command(noteOnCode(track, midi, voiceId) + safetyReleaseCode(voiceId), false);
   }
-  async startRecording() {
+  async startRecording(format = 'mp3') {
+    if (!['mp3', 'wav', 'flac'].includes(format)) throw new Error('Unknown recording format.');
     if (this.recording) throw new Error('Already recording.');
+    if (format !== 'wav' && !hasCommand('ffmpeg'))
+      throw new Error('Install FFmpeg for MP3 or FLAC recording, or select WAV.');
     const name = `take-${new Date().toISOString().replace(/[:.]/g, '-')}.wav`;
     const file = path.join(this.directory, 'recordings', name);
     await mkdir(path.dirname(file), { recursive: true });
     await this.command(recordingCode(file));
     this.recording = name;
+    this.recordingFormat = format;
     return name;
   }
   async stopRecording() {
@@ -288,7 +294,40 @@ export class Engine {
     const name = this.recording;
     await this.command('s.stopRecording; s.sync;');
     this.recording = null;
-    return name;
+    const format = this.recordingFormat;
+    if (format === 'wav') return name;
+    const outputName = name.replace(/\.wav$/, `.${format}`);
+    const source = path.join(this.directory, 'recordings', name);
+    const output = path.join(this.directory, 'recordings', outputName);
+    const temporary = `${output}.tmp`;
+    try {
+      await executeFile(
+        'ffmpeg',
+        [
+          '-nostdin',
+          '-hide_banner',
+          '-loglevel',
+          'error',
+          '-n',
+          '-i',
+          source,
+          '-map',
+          '0:a:0',
+          '-c:a',
+          format === 'mp3' ? 'libmp3lame' : 'flac',
+          ...(format === 'mp3' ? ['-b:a', '192k'] : []),
+          '-f',
+          format,
+          temporary,
+        ],
+        { timeout: 300000 },
+      );
+      await rename(temporary, output);
+    } catch {
+      await rm(temporary, { force: true });
+      throw new Error(`Recording conversion failed. The original WAV is safe: ${name}`);
+    }
+    return outputName;
   }
   status() {
     return {

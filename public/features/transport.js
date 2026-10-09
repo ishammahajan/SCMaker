@@ -16,6 +16,7 @@ export function createTransport({
   let syncWanted = false;
   let syncedEngine = false;
   let captureBusy = false;
+  let recordingBusy = false;
   function scheduleSync() {
     if (state.engine.state !== 'ready') return;
     // Keep the take's tempo and backing sequence fixed. Sync edits after it finishes.
@@ -73,6 +74,8 @@ export function createTransport({
       `status-light${ready ? '' : state.engine.state === 'error' ? ' error' : ' waiting'}`;
     for (const id of ['play', 'stop', 'record', 'audition', 'audition-original', 'audition-draft'])
       $(id).disabled = !ready;
+    $('record').disabled = !ready || recordingBusy;
+    $('recording-format').disabled = !ready || recordingBusy || Boolean(state.engine.recording);
     captureNotes(state.engine.noteCapture);
     if (syncWanted && !syncInFlight && state.engine.noteCapture?.phase === 'finished') {
       syncWanted = false;
@@ -151,21 +154,33 @@ export function createTransport({
   $('play').onclick = action(togglePlay);
   $('stop').onclick = action(stop);
   $('record').onclick = action(async () => {
-    if (state.engine.recording) {
-      const result = await api('record/stop', {});
-      state.engine.recording = null;
-      const link = element('a', '', '↓ Download stereo take');
-      link.href = result.url;
-      link.download = result.name;
-      $('recording-result').replaceChildren(link);
-      notify('Stereo recording finished.');
-    } else {
-      const { name } = await api('record/start', {});
-      state.engine.recording = name;
-      $('recording-result').textContent = 'Recording master output…';
-      notify('Recording started. Press Play or audition a sound.');
-    }
+    if (recordingBusy) return;
+    recordingBusy = true;
     paintEngine();
+    try {
+      if (state.engine.recording) {
+        $('recording-result').textContent = 'Finishing and preparing download…';
+        const result = await api('record/stop', {});
+        state.engine.recording = null;
+        const format = result.name.split('.').at(-1).toUpperCase();
+        const link = element('a', '', `↓ Download stereo take (${format})`);
+        link.href = result.url;
+        link.download = result.name;
+        $('recording-result').replaceChildren(link);
+        notify('Stereo recording finished.');
+      } else {
+        const { name } = await api('record/start', { format: $('recording-format').value });
+        state.engine.recording = name;
+        $('recording-result').textContent = 'Recording master output…';
+        notify('Recording started. Press Play or audition a sound.');
+      }
+    } catch (error) {
+      $('recording-result').textContent = error.message;
+      throw error;
+    } finally {
+      recordingBusy = false;
+      paintEngine();
+    }
   });
   $('engine-log-toggle').onclick = () => {
     togglePanel('engine-log-toggle', 'engine-log');

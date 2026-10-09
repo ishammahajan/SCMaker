@@ -63,16 +63,33 @@ test('create, compare, keep, sequence, save, reopen, and record with real SuperC
   await page.locator('#play').click();
   await expect(page.locator('#play')).toHaveAttribute('aria-label', 'Stop loop');
   await expect(page.locator('#playhead')).toBeVisible();
+  await expect(page.locator('#recording-format')).toHaveValue('mp3');
   await page.locator('#record').click();
   await expect(page.locator('#record')).toContainText('Finish take');
+  await expect(page.locator('#recording-format')).toBeDisabled();
   await page.waitForTimeout(1500);
   const downloadPromise = page.waitForEvent('download');
   await page.locator('#record').click();
   await page.locator('#recording-result a').click();
   const download = await downloadPromise;
-  const wav = await readFile(await download.path());
-  expect(wav.toString('ascii', 0, 4)).toBe('RIFF');
-  expect(wav.length).toBeGreaterThan(44100);
+  const mp3 = await readFile(await download.path());
+  expect(download.suggestedFilename()).toMatch(/\.mp3$/);
+  expect(mp3.toString('ascii', 0, 3)).toBe('ID3');
+  expect(mp3.length).toBeGreaterThan(10000);
+  for (const format of ['wav', 'flac']) {
+    await page.locator('#recording-format').selectOption(format);
+    await page.locator('#record').click();
+    await expect(page.locator('#record')).toContainText('Finish take');
+    await page.waitForTimeout(700);
+    await page.locator('#record').click();
+    await expect(page.locator('#recording-result a')).toContainText(format.toUpperCase());
+    const nextDownload = page.waitForEvent('download');
+    await page.locator('#recording-result a').click();
+    const take = await nextDownload;
+    expect(take.suggestedFilename()).toMatch(new RegExp(`\\.${format}$`));
+    const bytes = await readFile(await take.path());
+    expect(bytes.toString('ascii', 0, 4)).toBe(format === 'wav' ? 'RIFF' : 'fLaC');
+  }
   await page.locator('#stop').click();
   await expect(page.locator('#playhead')).toBeHidden();
   await page.locator('#project-name').fill('Browser verification');

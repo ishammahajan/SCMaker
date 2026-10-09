@@ -6,7 +6,7 @@ This is the first working prototype, not a complete DAW. It starts with a small 
 
 ## Run
 
-Requirements: Node.js 22 or newer, SuperCollider (`sclang` and `scsynth`), and a working audio device. This build has been tested on Linux with PipeWire's JACK compatibility layer.
+Requirements: Node.js 22 or newer, SuperCollider (`sclang` and `scsynth`), and a working audio device. Install FFmpeg (`ffmpeg` on PATH) for MP3 and FLAC recording; WAV works without it. This build has been tested on Linux with PipeWire's JACK compatibility layer.
 
 ```sh
 npm install
@@ -106,7 +106,8 @@ Each preview explains which changes it interpreted. Unmatched wording is ignored
 ## Files and recovery
 
 - `data/project.json` is the last explicitly saved project. It contains instrument recipes, exact generated SynthDefs, sound history, notes, tempo, levels, mute states, and reverb settings.
-- `data/recordings/` contains stereo, 16-bit PCM WAV takes.
+- Choose **MP3** (the default), **WAV**, or **FLAC** beside **Record** before starting a stereo audio take. The format is locked while recording. MP3 uses 192 kbps; FLAC is lossless. Finished takes have a download link.
+- `data/recordings/` contains the original stereo, 16-bit PCM WAV takes and any converted MP3 or FLAC files. SuperCollider records WAV internally, then FFmpeg converts finished takes. The original WAV is retained, including if conversion fails. If FFmpeg is unavailable, install it or select WAV.
 - `data/engine.scd` is a generated engine bootstrap, not an instrument library. It contains a per-run bridge secret. Do not share it.
 
 Unsaved edits are not automatically persisted. The browser warns before closing with unsaved changes. Export projects to keep multiple named sketches. Reopening a saved project does not reinterpret its prompts.

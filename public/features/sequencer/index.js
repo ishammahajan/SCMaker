@@ -129,7 +129,11 @@ export function createSequencer({ state, notify, markDirty, renderTracks }) {
     renderTracks();
   }
   function paintStep() {
-    const step = state.engine.playing ? state.engine.step : -1;
+    const song = state.engine.song;
+    const otherSection =
+      song?.phase === 'playing' &&
+      song.entries[song.position].sectionId !== state.selectedSectionId;
+    const step = state.engine.playing && !otherSection ? state.engine.step : -1;
     $('playhead').hidden = step < 0;
     if (step >= 0) $('playhead').style.gridColumn = step + 2;
     document

@@ -231,6 +231,45 @@
 .status-light.error {
   background: #dd8585;
 }
+.song-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.song-panel fieldset {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.section-tools,
+.song-actions,
+.arrangement-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.section-tools input,
+.section-tools select,
+.arrangement-row select {
+  min-width: 0;
+  max-width: 100%;
+  width: 160px;
+}
+.song-hint {
+  font-size: 11px;
+  line-height: 1.5;
+}
+.arrangement-row {
+  margin: 8px 0;
+}
+.arrangement-row input {
+  width: 55px;
+}
+.song-actions {
+  margin-top: 12px;
+}
 main {
   min-width: 0;
   padding: 28px 30px 20px;

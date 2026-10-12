@@ -1,12 +1,12 @@
 import { $, download, filename } from '../ui/dom.js';
-import { defaultProject, validateProject, makeTrack } from '/shared/music.js';
+import { defaultProject, makeSong, makeTrack } from '/shared/music.js';
 
 export function createProjectFiles({
   state,
   api,
   notify,
   action,
-  selectTrack,
+  selectSection,
   releaseAllKeys,
   stopPlayback,
   onChange,
@@ -36,10 +36,10 @@ export function createProjectFiles({
       dirty = false;
       $('saved-state').textContent = 'Saved on this computer';
     }
-    notify('Project saved. Exact sounds, versions, and notes included.');
+    notify('Project saved. Sections, arrangement, exact sounds, and notes included.');
   }
   async function loadProject(value) {
-    const validated = validateProject(value);
+    const validated = makeSong(value);
     releaseAllKeys();
     if (state.engine.playing) {
       await stopPlayback();
@@ -47,7 +47,7 @@ export function createProjectFiles({
     state.project = validated;
     $('project-name').value = state.project.name;
     $('tempo').value = state.project.tempo;
-    selectTrack(state.project.tracks[0].id);
+    await selectSection(state.project.sections[0].id);
     markDirty();
   }
 
@@ -55,10 +55,10 @@ export function createProjectFiles({
     let restored = false;
     try {
       const result = await api('project');
-      state.project = result.project;
+      state.project = makeSong(result.project);
       restored = result.restored;
     } catch (error) {
-      state.project = defaultProject();
+      state.project = makeSong(defaultProject());
       notify(`${error.message} Showing an unsaved starter instead.`, true);
     }
     $('project-name').value = state.project.name;
@@ -66,7 +66,7 @@ export function createProjectFiles({
     $('saved-state').textContent = restored
       ? 'Saved on this computer'
       : 'Starter sketch · not yet saved';
-    selectTrack(state.project.tracks[0].id);
+    await selectSection(state.project.sections[0].id);
   }
 
   $('save').onclick = action(saveProject);

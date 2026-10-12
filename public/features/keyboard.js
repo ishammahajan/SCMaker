@@ -1,5 +1,5 @@
 import { $, element } from '../ui/dom.js';
-import { currentTrack } from '../state.js';
+import { currentTrack, currentProject } from '../state.js';
 import { noteName } from '/shared/music.js';
 
 export const KEY_MAP = ['a', 'w', 's', 'e', 'd', 'f', 't', 'g', 'y', 'h', 'u', 'j', 'k'];
@@ -45,12 +45,18 @@ export function createKeyboard({ state, api, notify, action }) {
     });
   }
   function startKey(id, midi) {
-    if (heldKeys.has(id) || state.engine.state !== 'ready') return;
+    if (
+      heldKeys.has(id) ||
+      state.engine.state !== 'ready' ||
+      state.engine.song?.phase === 'playing' ||
+      state.engine.song?.phase === 'tail'
+    )
+      return;
     const held = {
       midi,
       trackId: state.selectedTrackId,
       voiceId: `v_${id}`,
-      project: structuredClone(state.project),
+      project: structuredClone(currentProject(state)),
     };
     heldKeys.set(id, held);
     document.querySelector(`#keyboard [data-midi="${midi}"]`)?.classList.add('held');

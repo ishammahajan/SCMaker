@@ -1,8 +1,9 @@
 # Code structure
 
 SCMaker uses native browser modules and Node built-ins. There is no build step or
-runtime framework. This structure separates existing responsibilities without
-changing the UI, HTTP API, version-one project format, or SuperCollider scheduling.
+runtime framework. The module structure separates responsibilities. Legacy version-one loops remain
+readable without changes to their canonical SynthDefs. The browser works with
+version-two section-based songs; SuperCollider owns loop and arrangement timing.
 
 ## Start here
 
@@ -21,6 +22,7 @@ public/
   state.js                   Current project, selected track, engine status
   features/
     tracks.js                Track selection, mix controls, adding instruments
+    arrangement.js           Section editing, ordered section entries, repeats
     sound-editor.js          Prompt previews, direct controls, sound history
     keyboard.js              Audition keys and live voice release
     transport.js             Playback, recording, audio sync, status polling
@@ -41,7 +43,9 @@ Each feature factory binds its own controls and returns a small controller API.
 `app.js` passes the callbacks needed for coordination. There is no global event
 bus, service registry, or controller import cycle.
 
-Only the project, selected track ID, and engine status are shared in `state.js`.
+Only the project, selected section/track IDs, and engine status are shared in `state.js`.
+`currentProject` exposes the selected section as a legacy-shaped loop snapshot, so
+existing sound and sequence editors work on that section's tracks.
 Features keep transient state in their own closures: the sequencer owns its
 selected note and octave view; the sound editor owns the unapplied draft; the
 keyboard owns held voices; project files owns dirty-state and save revisions.
@@ -58,15 +62,15 @@ to `styles/responsive.css`.
 
 ## Shared music domain
 
-| Module               | Responsibility                                                                               |
-| -------------------- | -------------------------------------------------------------------------------------------- |
-| `instruments.js`     | Instrument kinds, oscillator choices, control bounds, presets, recipe validation, note names |
-| `prompts.js`         | Bounded deterministic interpretation and refinements                                         |
-| `synthesis-graph.js` | Bounded custom graph validation and fixed-operation source generation                        |
-| `synthdef.js`        | Canonical SynthDef generation from validated recipes                                         |
-| `project.js`         | Project and history validation, track construction, starter sketch, loop/track limits        |
-| `validation.js`      | Small validation primitives                                                                  |
-| `music.js`           | Re-exports for existing consumers                                                            |
+| Module               | Responsibility                                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `instruments.js`     | Instrument kinds, oscillator choices, control bounds, presets, recipe validation, note names                  |
+| `prompts.js`         | Bounded deterministic interpretation and refinements                                                          |
+| `synthesis-graph.js` | Bounded custom graph validation and fixed-operation source generation                                         |
+| `synthdef.js`        | Canonical SynthDef generation from validated recipes                                                          |
+| `project.js`         | Loop/song and history validation, legacy-to-song conversion, section snapshots, track construction and limits |
+| `validation.js`      | Small validation primitives                                                                                   |
+| `music.js`           | Re-exports for existing consumers                                                                             |
 
 These modules do not depend on the DOM, HTTP, or engine processes. The dependency
 flow is validation primitives → instruments → SynthDefs → projects. Prompt
@@ -78,7 +82,16 @@ version-one compatibility fixture passing when editing the generator. Never pass
 imported or prompted text to SuperCollider as executable code. Custom recipes add a
 `graph` field to version-one projects. Its operations, numeric constants, and backward-only
 references are validated, then compiled by trusted templates. Old stock definitions
-remain byte-identical. Older SCMaker builds cannot open projects containing custom sounds.
+remain byte-identical. Older SCMaker builds cannot open projects containing custom sounds
+or version-two song projects.
+
+Version-two projects store `{ version, name, tempo, sections, arrangement }`.
+Each section stores `{ id, name, tracks }`, with independent two-bar sequences,
+recipes, history, and mix controls. Arrangement entries store `{ sectionId, repeats }`.
+IDs are unique within a section; copied sections can retain track and note IDs.
+Validation bounds section/entry counts and repeats and rejects dangling references.
+Opening a version-one loop converts it to one section in memory; disk saves are
+still explicit and atomic.
 
 ## Server and audio engine
 
@@ -113,6 +126,24 @@ repository-file serving. Generated bootstrap secrets and local projects belong i
 SuperCollider owns musical timing. Browser polling only paints status and the
 playhead. Keep audio scheduling and live-note safety release in SuperCollider.
 
+`/api/song/play` and `/api/song/record` accept validated version-two projects.
+Section loop, sync, and live-note endpoints accept validated version-one section
+snapshots. Arranged playback compiles trusted definitions under distinct internal
+names per section and allocates separate section buses/strips. This preserves
+outgoing sustained voices and reverb when the next section uses different sounds
+or mix settings. Existing workspace strips are silenced during song playback to
+keep old loop/audition tails out of an arranged take. Song resources are freed at
+the end or on Stop.
+
+A single SuperCollider routine follows the frozen arrangement and repeats, then
+waits for the longest release plus three seconds of reverb and bundle latency.
+Authenticated OSC messages report the current entry, repetition, tail, and completion.
+Completion triggers serialized recording finalization and optional conversion even
+without a browser. Generation IDs prevent stale completion replies from finishing
+a newer take. Stop also closes a song-owned recording; manual recordings retain
+their existing explicit finish behavior. Workspace sync, live notes, and auditions
+cannot alter an active arranged take.
+
 Note recording uses a four-beat count-in and a single two-bar pass on the same
 `TempoClock`. SuperCollider captures live key-down/up beats, aligns them with the
 audible loop's bundle latency, quantizes to sixteenth steps, and clips held notes
@@ -141,7 +172,9 @@ Use the commands in the [README](../README.md#checks). The checks cover:
 - Real SuperCollider synthesis, recording, save/reload, mobile layout, and shortcuts.
 - Quantized keyboard note entry, chords, count-in cancellation, loop boundaries,
   early stop, focus loss, overlap preservation, and note-recording API validation.
+- Legacy song conversion, independent section edits, arrangement validation,
+  repeats/reordering, full-song save/reopen, and automatic recording finalization.
+- Real arranged audio in every section/repetition and an audible ending release.
 
-Audio checks use isolated data and produce a short sound. The structural refactor
-has no intended product behavior changes. UI acceptance remains a human check;
+Audio checks use isolated data and produce sound. UI acceptance remains a human check;
 passing tests alone does not establish that every future workflow is covered.

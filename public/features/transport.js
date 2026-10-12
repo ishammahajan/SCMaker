@@ -1,4 +1,5 @@
 import { $, element, togglePanel } from '../ui/dom.js';
+import { currentProject } from '../state.js';
 
 export function createTransport({
   state,
@@ -10,6 +11,7 @@ export function createTransport({
   captureNotes,
   beginCapture,
   prepareCapture,
+  disableArrangement,
 }) {
   let syncTimer;
   let syncInFlight = false;
@@ -17,8 +19,11 @@ export function createTransport({
   let syncedEngine = false;
   let captureBusy = false;
   let recordingBusy = false;
+  let songBusy = false;
+  let handledSongId = null;
+  const songActive = () => ['playing', 'tail', 'finishing'].includes(state.engine.song?.phase);
   function scheduleSync() {
-    if (state.engine.state !== 'ready') return;
+    if (state.engine.state !== 'ready' || songActive()) return;
     // Keep the take's tempo and backing sequence fixed. Sync edits after it finishes.
     if (
       captureBusy ||
@@ -31,6 +36,7 @@ export function createTransport({
     syncTimer = setTimeout(() => syncAudio(), 180);
   }
   async function syncAudio() {
+    if (songActive()) return;
     if (
       captureBusy ||
       (state.engine.noteCapture && state.engine.noteCapture.phase !== 'finished')
@@ -44,7 +50,7 @@ export function createTransport({
     }
     syncInFlight = true;
     try {
-      await api('sync', { project: state.project });
+      await api('sync', { project: currentProject(state) });
     } catch (error) {
       notify(`Audio update failed: ${error.message}`, true);
     } finally {
@@ -61,7 +67,7 @@ export function createTransport({
       state.engine = await api('stop', {});
     } else {
       clearTimeout(syncTimer);
-      state.engine = await api('play', { project: state.project });
+      state.engine = await api('play', { project: currentProject(state) });
     }
     paintEngine();
   }
@@ -74,8 +80,16 @@ export function createTransport({
       `status-light${ready ? '' : state.engine.state === 'error' ? ' error' : ' waiting'}`;
     for (const id of ['play', 'stop', 'record', 'audition', 'audition-original', 'audition-draft'])
       $(id).disabled = !ready;
-    $('record').disabled = !ready || recordingBusy;
-    $('recording-format').disabled = !ready || recordingBusy || Boolean(state.engine.recording);
+    const activeSong = songActive();
+    $('record').disabled = !ready || recordingBusy || songBusy || activeSong;
+    $('recording-format').disabled =
+      !ready || recordingBusy || songBusy || activeSong || Boolean(state.engine.recording);
+    $('play-song').disabled = $('record-song').disabled =
+      !ready || songBusy || activeSong || Boolean(state.engine.recording);
+    disableArrangement(songBusy || activeSong);
+    for (const id of ['audition', 'audition-original', 'audition-draft'])
+      $(id).disabled = !ready || activeSong;
+    paintSong();
     captureNotes(state.engine.noteCapture);
     if (syncWanted && !syncInFlight && state.engine.noteCapture?.phase === 'finished') {
       syncWanted = false;
@@ -83,7 +97,7 @@ export function createTransport({
     }
     const capture = state.engine.noteCapture;
     const capturing = capture && capture.phase !== 'finished';
-    $('record-notes').disabled = !ready || captureBusy;
+    $('record-notes').disabled = !ready || captureBusy || songBusy || activeSong;
     $('record-notes').setAttribute('aria-pressed', String(Boolean(capturing)));
     $('record-notes').textContent = capturing
       ? capture.phase === 'count-in'
@@ -94,7 +108,10 @@ export function createTransport({
       element('span', '', state.engine.playing ? '■' : '▶'),
       document.createTextNode(state.engine.playing ? ' Stop' : ' Play'),
     );
-    $('play').setAttribute('aria-label', state.engine.playing ? 'Stop loop' : 'Play loop');
+    $('play').setAttribute(
+      'aria-label',
+      state.engine.playing ? (activeSong ? 'Stop song' : 'Stop loop') : 'Play loop',
+    );
     $('record').classList.toggle('active', Boolean(state.engine.recording));
     $('record').replaceChildren(
       element('span', 'record-dot'),
@@ -103,6 +120,65 @@ export function createTransport({
     if (!$('engine-log').hidden) $('engine-log').textContent = state.engine.log;
     paintStep();
   }
+  function showRecording(name, url) {
+    const format = name.split('.').at(-1).toUpperCase();
+    const link = element('a', '', `↓ Download stereo take (${format})`);
+    link.href = url;
+    link.download = name;
+    $('recording-result').replaceChildren(link);
+  }
+  function paintSong() {
+    const song = state.engine.song;
+    if (!song) return;
+    if (song.phase === 'playing') {
+      const entry = song.entries[song.position];
+      $('song-position').textContent =
+        `${song.position + 1}/${song.entries.length}: ${entry.name} · repeat ${song.repeat}/${entry.repeats} · bar ${Math.floor(Math.max(0, state.engine.step) / 16) + 1}/2`;
+    } else {
+      $('song-position').textContent =
+        song.phase === 'tail'
+          ? 'Ending tail…'
+          : song.phase === 'finishing'
+            ? 'Preparing recording…'
+            : 'Song stopped';
+    }
+    if (song.phase === 'finished' && handledSongId !== song.id) {
+      handledSongId = song.id;
+      if (song.error) {
+        $('recording-result').textContent = song.error;
+        notify(song.error, true);
+      } else if (song.name) {
+        showRecording(song.name, song.url);
+        notify('Song recording finished.');
+      }
+      scheduleSync();
+    }
+  }
+  async function startSong(recorded) {
+    if (songBusy || songActive()) return;
+    songBusy = true;
+    releaseAllKeys();
+    clearTimeout(syncTimer);
+    paintEngine();
+    try {
+      if (state.engine.noteCapture && state.engine.noteCapture.phase !== 'finished') await stop();
+      state.engine = await api(recorded ? 'song/record' : 'song/play', {
+        project: state.project,
+        ...(recorded ? { format: $('recording-format').value } : {}),
+      });
+      if (recorded) $('recording-result').textContent = 'Recording arranged song…';
+      notify(
+        'Playing the arrangement. Workspace edits apply next time. Playback stops after the ending tail.',
+      );
+    } finally {
+      songBusy = false;
+      paintEngine();
+      if (!songActive()) scheduleSync();
+    }
+  }
+  $('play-song').onclick = action(() => startSong(false));
+  $('record-song').onclick = action(() => startSong(true));
+
   async function pollEngine() {
     try {
       state.engine = await api('status');
@@ -125,7 +201,7 @@ export function createTransport({
   }
 
   async function toggleNoteRecording(rerecord = false) {
-    if (captureBusy) return;
+    if (captureBusy || songBusy || songActive()) return;
     captureBusy = true;
     $('record-notes').disabled = true;
     try {
@@ -162,11 +238,7 @@ export function createTransport({
         $('recording-result').textContent = 'Finishing and preparing download…';
         const result = await api('record/stop', {});
         state.engine.recording = null;
-        const format = result.name.split('.').at(-1).toUpperCase();
-        const link = element('a', '', `↓ Download stereo take (${format})`);
-        link.href = result.url;
-        link.download = result.name;
-        $('recording-result').replaceChildren(link);
+        showRecording(result.name, result.url);
         notify('Stereo recording finished.');
       } else {
         const { name } = await api('record/start', { format: $('recording-format').value });

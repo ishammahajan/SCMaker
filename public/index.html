@@ -198,6 +198,38 @@
             <pre><code id="synth-code"></code></pre>
           </div>
         </dialog>
+        <section class="song-panel" aria-labelledby="song-heading">
+          <div class="panel-heading">
+            <h2 id="song-heading">Song arrangement</h2>
+            <span id="song-summary" class="muted"></span>
+          </div>
+          <fieldset id="arrangement-editor">
+            <legend class="sr-only">Sections and arrangement</legend>
+            <div class="section-tools">
+              <label for="section-select">Edit section</label>
+              <select id="section-select"></select>
+              <label class="sr-only" for="section-name">Section name</label>
+              <input id="section-name" maxlength="60" />
+              <button id="new-section" class="outline">New section</button>
+              <button id="duplicate-section" class="subtle">Duplicate</button>
+              <button id="delete-section" class="subtle">Delete section</button>
+            </div>
+            <p class="muted song-hint">
+              Each section is two bars with its own sounds and notes. Repeated entries reuse the
+              section. Duplicate it to make a variation.
+            </p>
+            <div id="arrangement-list"></div>
+            <button id="append-section" class="subtle">＋ Append selected section</button>
+          </fieldset>
+          <div class="song-actions">
+            <button id="play-song" class="primary" disabled>▶ Play song</button>
+            <button id="record-song" class="record" disabled>
+              <span class="record-dot" aria-hidden="true"></span>
+              Record song
+            </button>
+            <span id="song-position" role="status" class="muted"></span>
+          </div>
+        </section>
         <section class="sequencer" aria-labelledby="sequencer-heading">
           <div class="sequencer-toolbar">
             <div>

@@ -1,13 +1,14 @@
 import { $, element } from '../ui/dom.js';
 import { MAX_TRACKS, makeTrack } from '/shared/music.js';
-import { TRACK_COLORS } from '../state.js';
+import { TRACK_COLORS, currentProject } from '../state.js';
 
 export function createTracks({ state, markDirty, selectTrack, openWorkshop }) {
   function renderTracks() {
-    $('track-count').textContent = `${state.project.tracks.length} / ${MAX_TRACKS}`;
-    $('add-track').disabled = state.project.tracks.length >= MAX_TRACKS;
+    const project = currentProject(state);
+    $('track-count').textContent = `${project.tracks.length} / ${MAX_TRACKS}`;
+    $('add-track').disabled = project.tracks.length >= MAX_TRACKS;
     $('tracks').replaceChildren();
-    state.project.tracks.forEach((track, index) => {
+    project.tracks.forEach((track, index) => {
       const card = element(
         'div',
         `track-card${track.id === state.selectedTrackId ? ' selected' : ''}`,
@@ -57,19 +58,19 @@ export function createTracks({ state, markDirty, selectTrack, openWorkshop }) {
   }
 
   $('add-track').onclick = () => {
-    $('new-name').value = `Voice 0${state.project.tracks.length + 1}`;
+    $('new-name').value = `Voice 0${currentProject(state).tracks.length + 1}`;
     $('add-dialog').showModal();
   };
   $('cancel-add').onclick = () => $('add-dialog').close();
   $('add-form').onsubmit = (event) => {
     event.preventDefault();
-    if (state.project.tracks.length >= MAX_TRACKS) return;
+    if (currentProject(state).tracks.length >= MAX_TRACKS) return;
     const track = makeTrack(
       $('new-kind').value,
       `t_${crypto.randomUUID().replaceAll('-', '')}`,
       $('new-name').value.trim().slice(0, 60) || 'New voice',
     );
-    state.project.tracks.push(track);
+    currentProject(state).tracks.push(track);
     $('add-dialog').close();
     selectTrack(track.id);
     markDirty();

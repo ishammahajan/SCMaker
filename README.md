@@ -2,7 +2,7 @@
 
 A local, prompt-driven music workstation with a web interface and **real SuperCollider synthesis**. Describe an instrument, audition a revision, keep it, and write its notes in a piano roll.
 
-This is the first working prototype, not a complete DAW. It starts with a small bass, kick, and pad sketch. Nothing plays until you press Play or audition a sound.
+This is a small song-making prototype, not a complete DAW. It starts with a two-bar bass, kick, and pad sketch. You can build a song from independent sections and record its arrangement. Nothing plays until you press Play, Play song, Record song, or audition a sound.
 
 ## Run
 
@@ -37,7 +37,7 @@ The engine uses its own dynamically allocated OSC ports. It does not take over a
 
 The main workspace is for composing: tracks and mix controls on the left, the piano roll in the center, and a playable keyboard below it. Sound design lives in a separate **Sound Workshop** dialog.
 
-1. Select an instrument on the left, or add one. There can be up to four. Adding an instrument opens its workshop.
+1. Select an instrument on the left, or add one. There can be up to four per section. Adding an instrument opens its workshop.
 2. Click the piano roll to add notes. Select a note to set its length and velocity. Double-click it or use **Delete note** to remove it.
 3. Play the keyboard or hold computer keys `A W S E D F T G Y H U J K`.
 4. Adjust each instrument's level, mute, and reverb in the main workspace.
@@ -45,6 +45,19 @@ The main workspace is for composing: tracks and mix controls on the left, the pi
 6. Choose **Back to music** or press Escape to close the workshop. Closing does not apply a preview or stop playback. An unapplied preview remains available when reopening the same instrument's workshop; switching instruments discards it.
 7. Save the project, or export a portable `.json` file. **Open project file** imports an exported project. **New empty project** removes the starter sketch from your working state.
 8. Press **Record**, then play your music. **Finish take** closes the stereo WAV and provides a download link. Recording also captures auditioned sounds.
+
+## Make and record a song
+
+1. Name the current section in **Song arrangement**, for example Intro.
+2. Choose **Duplicate** to copy its sounds and notes into an independent variation, or **New section** to copy its sounds with empty sequences. Select **Edit section** to switch between sections. Each section has its own instruments, sound history, mix controls, and notes. Editing one does not change another. Switching sections stops the current loop or note-recording pass.
+3. Choose **Append selected section** to add a section to the arrangement. Change each entry's section and repeat count, move entries with the arrows, or remove an entry with ×. Repeated entries reuse the same section; duplicate a section when you want a different final chorus. Deleting a section also removes its arrangement entries.
+4. Use the top **Play** button to loop the section you are editing. Use **Play song** to play the arrangement once, from its beginning. The position display shows the section, repetition, and bar. Song playback uses a snapshot; edits made during playback apply next time. Live keyboard playing and auditions are unavailable during song playback.
+5. Choose a recording format beside the top **Record** button, then choose **Record song**. Recording starts before the first note and finishes automatically after the arrangement and ending tail. The tail allows the longest instrument release plus three seconds for reverb. Download the finished stereo take from the footer. **Stop** finishes early and provides a partial take. The top **Record** button remains the separate manual recorder.
+6. **Save project** preserves the entire song. Export a `.json` file to keep multiple songs or transfer one to another computer.
+
+This pass keeps sections fixed at two bars in 4/4, with one project-wide tempo, at most 16 sections, and at most 32 arrangement entries. An entry can repeat 1–16 times. Use adjacent sections or repetitions for longer passages. There is no automation, audio-track recording, or timeline editor.
+
+Old version-one loop projects open as a single section with their exact sounds and notes intact. Saving or exporting from this UI writes the version-two song format, which older SCMaker builds cannot open. Opening alone does not rewrite the saved file.
 
 To record sequence notes, select an instrument and choose **Record notes** beside the piano roll controls. After four count-in clicks, play the computer keyboard for one two-bar loop. Releasing a key adds its note to the grid. Starts and ends snap to sixteenth steps, with a minimum length of one step and the current **Velocity** setting. Recording stops automatically at the loop boundary; **Stop**, Escape, or **Stop recording notes** finishes early. Existing notes stay intact. Same-pitch overlaps and notes beyond the 256-note track limit are skipped, with a summary when the take finishes. Save explicitly to keep the new notes. Press **R** to start or stop note recording. **Ctrl+R** removes only the notes added by the selected instrument's previous pass and starts a new count-in. Older and manually added notes are preserved, and a failed restart does not delete the previous pass. Pass history lasts for the current browser session and resets when opening or starting another project. These shortcuts are inactive while typing or using a dialog; Ctrl+R overrides browser reload only in the music workspace. The separate **Record** button still records stereo audio, not sequence notes.
 
@@ -105,7 +118,7 @@ Each preview explains which changes it interpreted. Unmatched wording is ignored
 
 ## Files and recovery
 
-- `data/project.json` is the last explicitly saved project. It contains instrument recipes, exact generated SynthDefs, sound history, notes, tempo, levels, mute states, and reverb settings.
+- `data/project.json` is the last explicitly saved project. Song projects contain named sections with instrument recipes, exact generated SynthDefs, sound history, notes, levels, mute states, and reverb settings, plus the arrangement and project-wide tempo.
 - Choose **MP3** (the default), **WAV**, or **FLAC** beside **Record** before starting a stereo audio take. The format is locked while recording. MP3 uses 192 kbps; FLAC is lossless. Finished takes have a download link.
 - `data/recordings/` contains the original stereo, 16-bit PCM WAV takes and any converted MP3 or FLAC files. SuperCollider records WAV internally, then FFmpeg converts finished takes. The original WAV is retained, including if conversion fails. If FFmpeg is unavailable, install it or select WAV.
 - `data/engine.scd` is a generated engine bootstrap, not an instrument library. It contains a per-run bridge secret. Do not share it.
@@ -144,6 +157,6 @@ This was chosen over browser-only synthesis because SuperCollider is the intende
 
 The HTTP server binds only to `127.0.0.1`, validates Host and Origin, and requires a per-run token for mutations. Imports are checked before use, including exact code/recipe matching. Arbitrary SuperCollider code cannot be executed through an HTTP endpoint. This is a single-user local tool, not a remotely accessible or multi-user service. Run one editing browser session at a time.
 
-Not implemented yet: full arrangements, live scene launching, unrestricted SynthDef code generation, MIDI input, custom code execution in the UI, and plugin hosting. The next product acceptance check is yours: make a minute of music you like, save it, reopen it, and continue with the same sounds.
+Not implemented yet: variable-length sections, a DAW timeline, automation, audio tracks, live scene launching, unrestricted SynthDef code generation, MIDI input, custom code execution in the UI, and plugin hosting. The next product acceptance check is yours: make a song you like, save it, reopen it, and record it with the same sounds.
 
 SuperCollider references: [SynthDef](https://docs.supercollider.online/Classes/SynthDef.html), [TempoClock](https://docs.supercollider.online/Classes/TempoClock.html), and [server timing](https://docs.supercollider.online/Guides/ServerTiming.html).

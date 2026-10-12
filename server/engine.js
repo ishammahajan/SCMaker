@@ -10,6 +10,10 @@ import {
   bootstrap,
   projectCode,
   playbackCode,
+  songInstruments,
+  songSetupCode,
+  songSectionCode,
+  songPlaybackCode,
   auditionCode,
   noteOffCode,
   noteOnCode,
@@ -47,6 +51,8 @@ export class Engine {
     this.recording = null;
     this.noteCapture = null;
     this.captureSequence = 0;
+    this.song = null;
+    this.songSequence = 0;
     this.capturePrefix = randomBytes(8).toString('hex');
     this.compiled = new Map();
     this.queue = Promise.resolve();
@@ -98,6 +104,20 @@ export class Engine {
           if (address === '/scmaker/step') {
             this.step = args[1];
             this.stepAt = Date.now() + 80;
+          }
+          if (this.songActive && args[1] === this.song.id) {
+            if (address === '/scmaker/songStep') {
+              this.step = args[2];
+              this.stepAt = Date.now() + 80;
+              this.song.position = args[3];
+              this.song.repeat = args[4];
+            }
+            if (address === '/scmaker/songTail') {
+              this.song.phase = 'tail';
+              this.step = -1;
+            }
+            if (address === '/scmaker/songFinished')
+              this.run(() => this.finishSong(args[1])).catch((error) => this.log(error.message));
           }
           if (this.noteCapture && args[1] === this.noteCapture.id) {
             if (address === '/scmaker/countIn') this.noteCapture.countIn = args[2];
@@ -228,7 +248,12 @@ export class Engine {
       this.compiled.set(track.id, track.code);
     }
   }
+  get songActive() {
+    return ['playing', 'tail', 'finishing'].includes(this.song?.phase);
+  }
   async sync(project) {
+    // Song playback uses a frozen arrangement. Workspace edits apply next time.
+    if (this.songActive) return;
     for (const track of project.tracks) await this.compile(track);
     await this.command(projectCode(project));
   }
@@ -238,7 +263,60 @@ export class Engine {
     await this.command(playbackCode(project));
     this.playing = true;
   }
+  async playSong(project, format) {
+    if (this.recording) throw new Error('Finish the current recording before starting a song.');
+    await this.stop();
+    const sections = songInstruments(project);
+    try {
+      for (const tracks of sections) for (const track of tracks) await this.compile(track);
+      await this.command(songSetupCode(project));
+      let busOffset = 0;
+      for (const [index, tracks] of sections.entries()) {
+        await this.command(songSectionCode(tracks, index, busOffset));
+        busOffset += tracks.length;
+      }
+      if (format !== undefined) await this.startRecording(format);
+      this.song = {
+        id: ++this.songSequence,
+        phase: 'playing',
+        recorded: format !== undefined,
+        position: 0,
+        repeat: 1,
+        entries: project.arrangement.map((entry) => ({
+          ...entry,
+          name: project.sections.find((section) => section.id === entry.sectionId).name,
+        })),
+      };
+      this.playing = true;
+      await this.command(songPlaybackCode(project, this.song.id));
+    } catch (error) {
+      try {
+        await this.stop();
+        if (this.recording) await this.stopRecording();
+      } catch (cleanupError) {
+        this.log(`Song cleanup failed: ${cleanupError.message}`);
+      }
+      throw error;
+    }
+  }
+  async finishSong(id) {
+    if (!this.songActive || this.song.id !== id) return;
+    this.playing = false;
+    this.step = -1;
+    this.song.phase = 'finishing';
+    try {
+      if (this.song.recorded && this.recording) {
+        const name = await this.stopRecording();
+        this.song.name = name;
+        this.song.url = `/api/recordings/${name}`;
+      }
+    } catch (error) {
+      this.song.error = error.message;
+    }
+    this.song.phase = 'finished';
+  }
   async startNoteCapture(project, trackId, velocity) {
+    if (this.songActive) throw new Error('Stop song playback before recording notes.');
     await this.stop();
     await this.sync(project);
     this.noteCapture = {
@@ -255,13 +333,15 @@ export class Engine {
   }
   async stop() {
     await this.command(
-      'if(~routine.notNil, { ~routine.stop; }); if(~captureActive, { ~finishCapture.(); }); ~clock.clear; ~live.clear; 0.12.wait; ~voices.freeAll;',
+      'if(~routine.notNil, { ~routine.stop; }); if(~captureActive, { ~finishCapture.(); }); ~clock.clear; ~live.clear; 0.12.wait; ~voices.freeAll; ~clearSong.();',
     );
     this.playing = false;
     this.step = -1;
     if (this.noteCapture) this.noteCapture.phase = 'finished';
+    if (this.songActive) await this.finishSong(this.song.id);
   }
   async audition(recipe, midi = 48, reverb = 0.05) {
+    if (this.songActive) throw new Error('Stop song playback before auditioning sounds.');
     const code = synthDef('t_preview', recipe);
     await this.compile({ id: 't_preview', code });
     await this.command(auditionCode(midi, reverb));
@@ -271,12 +351,14 @@ export class Engine {
       await this.command(noteOffCode(voiceId), false);
       return;
     }
+    if (this.songActive) throw new Error('Stop song playback before playing live notes.');
     await this.compile(track);
     // Keep note-on and its disconnect safeguard in one command to avoid an extra
     // round trip on the keyboard input path.
     await this.command(noteOnCode(track, midi, voiceId) + safetyReleaseCode(voiceId), false);
   }
   async startRecording(format = 'mp3') {
+    if (this.songActive) throw new Error('Stop song playback before starting a manual recording.');
     if (!['mp3', 'wav', 'flac'].includes(format)) throw new Error('Unknown recording format.');
     if (this.recording) throw new Error('Already recording.');
     if (format !== 'wav' && !hasCommand('ffmpeg'))
@@ -336,6 +418,7 @@ export class Engine {
       playing: this.playing,
       recording: this.recording,
       noteCapture: this.noteCapture,
+      song: this.song,
       step: this.step,
       stepAt: this.stepAt,
       log: this.logs.join('\n'),

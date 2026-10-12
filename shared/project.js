@@ -4,6 +4,8 @@ import { assert, number, text } from './validation.js';
 
 export const STEPS = 32;
 export const MAX_TRACKS = 4;
+export const MAX_SECTIONS = 16;
+export const MAX_ARRANGEMENT = 32;
 const clone = (value) => structuredClone(value);
 
 function validateSnapshot(value, id) {
@@ -18,6 +20,7 @@ function validateSnapshot(value, id) {
 }
 
 export function validateProject(value) {
+  if (value?.version === 2) return validateSong(value);
   assert(value && value.version === 1, 'Unsupported project format.');
   const name = text(value.name, 100, 'project name');
   const tempo = number(value.tempo, 40, 240, 'tempo');
@@ -83,6 +86,61 @@ export function validateProject(value) {
     };
   });
   return { version: 1, name, tempo, tracks };
+}
+
+function validateSong(value) {
+  const name = text(value.name, 100, 'project name');
+  const tempo = number(value.tempo, 40, 240, 'tempo');
+  assert(
+    Array.isArray(value.sections) &&
+      value.sections.length >= 1 &&
+      value.sections.length <= MAX_SECTIONS,
+    'Use one to sixteen sections.',
+  );
+  const ids = new Set();
+  const sections = value.sections.map((section) => {
+    assert(
+      section && /^s_[a-z0-9_]{1,40}$/.test(section.id) && !ids.has(section.id),
+      'Invalid or duplicate section ID.',
+    );
+    ids.add(section.id);
+    const sectionName = text(section.name, 60, 'section name');
+    const { tracks } = validateProject({ version: 1, name, tempo, tracks: section.tracks });
+    return { id: section.id, name: sectionName, tracks };
+  });
+  assert(
+    Array.isArray(value.arrangement) &&
+      value.arrangement.length >= 1 &&
+      value.arrangement.length <= MAX_ARRANGEMENT,
+    'Use one to thirty-two arrangement entries.',
+  );
+  const arrangement = value.arrangement.map((entry) => {
+    assert(entry && ids.has(entry.sectionId), 'Unknown arrangement section.');
+    const repeats = number(entry.repeats, 1, 16, 'section repeats');
+    assert(Number.isInteger(repeats), 'Section repeats must be whole numbers.');
+    return { sectionId: entry.sectionId, repeats };
+  });
+  return { version: 2, name, tempo, sections, arrangement };
+}
+
+// Legacy loops remain valid. The browser upgrades them without reinterpreting sounds.
+export function makeSong(value) {
+  const project = validateProject(value);
+  if (project.version === 2) return project;
+  return {
+    version: 2,
+    name: project.name,
+    tempo: project.tempo,
+    sections: [{ id: 's_first', name: 'Section 1', tracks: project.tracks }],
+    arrangement: [{ sectionId: 's_first', repeats: 1 }],
+  };
+}
+
+export function sectionProject(project, sectionId) {
+  if (project.version === 1) return project;
+  const section = project.sections.find((section) => section.id === sectionId);
+  assert(section, 'Unknown section.');
+  return { version: 1, name: project.name, tempo: project.tempo, tracks: section.tracks };
 }
 
 export function makeTrack(kind, id, name) {

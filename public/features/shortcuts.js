@@ -1,5 +1,6 @@
 import { $ } from '../ui/dom.js';
 import { KEY_MAP } from './keyboard.js';
+import { currentProject } from '../state.js';
 
 export function bindShortcuts({ state, action, projectFiles, transport, keyboard, selectTrack }) {
   window.addEventListener(
@@ -29,15 +30,15 @@ export function bindShortcuts({ state, action, projectFiles, transport, keyboard
         }
         return;
       }
-      if (event.key === ' ' && !event.target.closest('.piano-key')) {
+      if (event.key === ' ' && !event.target.closest('.piano-key, .song-panel button')) {
         event.preventDefault();
         if (state.engine.state === 'ready') await transport.togglePlay();
         return;
       }
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       const index = Number(event.key) - 1;
-      if (Number.isInteger(index) && index >= 0 && state.project.tracks[index]) {
-        selectTrack(state.project.tracks[index].id);
+      if (Number.isInteger(index) && index >= 0 && currentProject(state).tracks[index]) {
+        selectTrack(currentProject(state).tracks[index].id);
         return;
       }
       const offset = KEY_MAP.indexOf(event.key.toLowerCase());

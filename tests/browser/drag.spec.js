@@ -54,7 +54,7 @@ async function exportedNote(page) {
   await page.locator('#export-project').click();
   const download = await downloadPromise;
   const project = JSON.parse(await readFile(await download.path(), 'utf8'));
-  return project.tracks[0].notes.find((note) => note.id === 'n_move');
+  return project.sections[0].tracks[0].notes.find((note) => note.id === 'n_move');
 }
 
 async function beginResize(page) {

@@ -1,4 +1,4 @@
-import { STEPS } from '../shared/music.js';
+import { STEPS, synthDef } from '../shared/music.js';
 
 // Only validated numeric recipes, generated IDs, and escaped strings reach these builders.
 export const scString = (value) => JSON.stringify(value);
@@ -17,6 +17,14 @@ s.options.maxNodes = 4096;
 s.options.zeroConf = false;
 s.latency = 0.08;
 ~tracks = [];
+~songBuses = [];
+~songStrips = [];
+~clearSong = {
+    ~songStrips.do({ |strip| strip.free; });
+    ~songBuses.do({ |bus| bus.free; });
+    ~songStrips = [];
+    ~songBuses = [];
+};
 ~live = IdentityDictionary.new;
 ~clock = TempoClock.new(1.8, 0, nil, 4096);
 ~routine = nil;
@@ -144,6 +152,84 @@ export function playbackCode(project, captureId = null) {
     ~voices.freeAll;
     `
     }
+}).play(~clock);
+`;
+}
+
+// Each section has distinct synth names and strips, so sound changes never replace
+// another section's definition or cut off its sustained notes and reverb.
+export function songInstruments(project) {
+  return project.sections.map((section, sectionIndex) =>
+    section.tracks.map((track, trackIndex) => {
+      const id = `t_song_${sectionIndex}_${trackIndex}`;
+      return { ...track, id, code: synthDef(id, track.recipe) };
+    }),
+  );
+}
+
+export function songSetupCode(project) {
+  const count = project.sections.reduce((sum, section) => sum + section.tracks.length, 0);
+  return `
+~clearSong.();
+~strips.do({ |strip| strip.set(\\level, 0); });
+~songSections = Array.newClear(${project.sections.length});
+~songBuses = Array.fill(${count}, { Bus.audio(s, 2) });
+~songStrips = Array.fill(${count}, { |i| Synth(\\scmakerStrip, [\\inbus, ~songBuses[i], \\out, ~mixBus], ~fxGroup) });
+`;
+}
+
+export function songSectionCode(tracks, sectionIndex, busOffset) {
+  const data = tracks.map(
+    (track, i) =>
+      `[\\${track.id}, ${busOffset + i}, [${(track.muted ? [] : track.notes).map((note) => `[${note.start}, ${note.midi}, ${note.length}, ${note.velocity}]`).join(',')}]]`,
+  );
+  const strips = tracks.map(
+    (track, i) =>
+      `~songStrips[${busOffset + i}].set(\\level, ${track.muted ? 0 : track.volume}, \\reverb, ${track.reverb});`,
+  );
+  return `~songSections[${sectionIndex}] = [${data.join(',')}]; ${strips.join('\n')}`;
+}
+
+export function songPlaybackCode(project, id) {
+  const order = project.arrangement.flatMap((entry, position) =>
+    Array.from(
+      { length: entry.repeats },
+      (_, repeat) =>
+        `[${project.sections.findIndex((section) => section.id === entry.sectionId)}, ${position}, ${repeat + 1}]`,
+    ),
+  );
+  const release = Math.max(
+    ...project.sections.flatMap((section) => section.tracks.map((track) => track.recipe.release)),
+  );
+  return `
+~clock.stop;
+~clock = TempoClock.new(${project.tempo / 60}, 0, nil, 4096);
+~routine = Routine({
+    [${order.join(',')}].do({ |entry|
+        ${STEPS}.do({ |step|
+            ~songSections[entry[0]].do({ |track|
+                track[2].do({ |note|
+                    if(note[0] == step, {
+                        var voice;
+                        s.makeBundle(s.latency, {
+                            voice = Synth(track[0], [\\out, ~songBuses[track[1]], \\freq, note[1].midicps, \\amp, note[3] * 0.14], ~voices);
+                        });
+                        ~clock.sched(note[2] / 4, {
+                            s.makeBundle(s.latency, { voice.set(\\gate, 0); });
+                            nil
+                        });
+                    });
+                });
+            });
+            ~reply.sendMsg("/scmaker/songStep", ~secret, ${id}, step, entry[1], entry[2]);
+            0.25.wait;
+        });
+    });
+    ~reply.sendMsg("/scmaker/songTail", ~secret, ${id});
+    ((${release} + 3 + s.latency) * ~clock.tempo).wait;
+    ~voices.freeAll;
+    ~clearSong.();
+    ~reply.sendMsg("/scmaker/songFinished", ~secret, ${id});
 }).play(~clock);
 `;
 }

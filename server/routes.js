@@ -24,14 +24,30 @@ export function createApiRoutes({ engine, projects, token, dataDir, generateInst
         await projects.save(project);
         return json(response, 200, { saved: true });
       }
+      if (project.version !== 1) throw new Error('Select a section for loop playback.');
       await engine.run(() =>
         pathname === '/api/play' ? engine.play(project) : engine.sync(project),
       );
       return json(response, 200, engine.status());
     }
+    if (pathname === '/api/song/play' || pathname === '/api/song/record') {
+      const project = validateProject(input.project);
+      if (project.version !== 2) throw new Error('A song arrangement is required.');
+      const format =
+        pathname === '/api/song/record'
+          ? input.format === undefined
+            ? 'mp3'
+            : input.format
+          : undefined;
+      if (pathname === '/api/song/record' && !['mp3', 'wav', 'flac'].includes(format))
+        throw new Error('Unknown recording format.');
+      await engine.run(() => engine.playSong(project, format));
+      return json(response, 200, engine.status());
+    }
     if (pathname === '/api/notes/start') {
       const project = validateProject(input.project);
       if (
+        project.version !== 1 ||
         !project.tracks.some((track) => track.id === input.trackId) ||
         !validNumber(input.velocity, 0.05, 1)
       )
@@ -61,6 +77,7 @@ export function createApiRoutes({ engine, projects, token, dataDir, generateInst
       )
         throw new Error('Invalid note input.');
       const project = validateProject(input.project);
+      if (project.version !== 1) throw new Error('Select a section for live notes.');
       const track = project.tracks.find((track) => track.id === input.trackId);
       if (!track) throw new Error('Unknown instrument.');
       await engine.run(() => engine.note(track, input.midi, input.voiceId, input.on));
@@ -73,7 +90,10 @@ export function createApiRoutes({ engine, projects, token, dataDir, generateInst
       return json(response, 200, { name });
     }
     if (pathname === '/api/record/stop') {
-      const name = await engine.run(() => engine.stopRecording());
+      const name = await engine.run(() => {
+        if (engine.songActive) throw new Error('Use Stop to finish a song recording early.');
+        return engine.stopRecording();
+      });
       return json(response, 200, { name, url: `/api/recordings/${name}` });
     }
     return json(response, 404, { error: 'Unknown API endpoint.' });

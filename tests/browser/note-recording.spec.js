@@ -19,7 +19,7 @@ async function project(page) {
   await page.locator('#export-project').click();
   const download = await downloadPromise;
   const { readFile } = await import('node:fs/promises');
-  return JSON.parse(await readFile(await download.path(), 'utf8'));
+  return JSON.parse(await readFile(await download.path(), 'utf8')).sections[0];
 }
 
 test('computer keyboard records a chord, saves editable notes, and stops after one loop', async ({

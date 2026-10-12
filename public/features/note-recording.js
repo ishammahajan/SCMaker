@@ -1,4 +1,6 @@
-// A take belongs to the project and track armed at its start, not to later selections.
+import { sectionProject } from '../../shared/project.js';
+
+// A take belongs to the project, section, and track armed at its start.
 export function createNoteRecording({
   state,
   markDirty,
@@ -20,23 +22,28 @@ export function createNoteRecording({
 
   function prepare(rerecord = false) {
     resetHistory();
-    const previousIds = rerecord ? lastPasses.get(state.selectedTrackId) : new Set();
+    const key = `${state.selectedSectionId ?? ''}:${state.selectedTrackId}`;
+    const previousIds = rerecord ? lastPasses.get(key) : new Set();
     if (!previousIds) {
       notify('No previous recording pass on this instrument in this session.', true);
       return null;
     }
-    const project = structuredClone(state.project);
+    const sectionId = state.selectedSectionId;
+    const project = structuredClone(sectionProject(state.project, sectionId));
     const track = project.tracks.find((track) => track.id === state.selectedTrackId);
     track.notes = track.notes.filter((note) => !previousIds.has(note.id));
-    return { project, trackId: track.id, sourceProject: state.project, previousIds };
+    return { project, sectionId, trackId: track.id, sourceProject: state.project, previousIds };
   }
 
   function begin(capture, prepared) {
     resetHistory();
     // Delete only after the engine successfully starts, so a failed restart loses no notes.
     const project = prepared?.sourceProject ?? state.project;
+    const sectionId = prepared?.sectionId ?? state.selectedSectionId;
     if (prepared && project === state.project) {
-      const track = project.tracks.find((track) => track.id === capture.trackId);
+      const track = sectionProject(project, sectionId).tracks.find(
+        (track) => track.id === capture.trackId,
+      );
       const remaining = track.notes.filter((note) => !prepared.previousIds.has(note.id));
       if (remaining.length !== track.notes.length) {
         track.notes = remaining;
@@ -45,12 +52,22 @@ export function createNoteRecording({
         renderTracks();
       }
     }
-    take = { id: capture.id, project, seen: new Set(), addedIds: new Set(), added: 0, skipped: 0 };
+    take = {
+      id: capture.id,
+      project,
+      sectionId,
+      seen: new Set(),
+      addedIds: new Set(),
+      added: 0,
+      skipped: 0,
+    };
   }
 
   function update(capture) {
     if (!take || !capture || capture.id !== take.id || state.project !== take.project) return;
-    const track = take.project.tracks.find((track) => track.id === capture.trackId);
+    const track = sectionProject(take.project, take.sectionId).tracks.find(
+      (track) => track.id === capture.trackId,
+    );
     let changed = false;
     for (const note of capture.notes) {
       if (take.seen.has(note.id)) continue;
@@ -76,7 +93,7 @@ export function createNoteRecording({
       renderTracks();
     }
     if (capture.phase === 'finished') {
-      lastPasses.set(capture.trackId, take.addedIds);
+      lastPasses.set(`${take.sectionId ?? ''}:${capture.trackId}`, take.addedIds);
       releaseAllKeys();
       notify(
         `Recorded ${take.added} notes.${take.skipped ? ` Skipped ${take.skipped} conflicting notes or notes beyond the track limit.` : ''}`,

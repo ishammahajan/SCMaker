@@ -16,6 +16,7 @@ export const PUBLIC_ASSETS = [
   '/api.js',
   '/state.js',
   '/features/tracks.js',
+  '/features/arrangement.js',
   '/features/keyboard.js',
   '/features/transport.js',
   '/features/note-recording.js',

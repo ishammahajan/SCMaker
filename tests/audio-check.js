@@ -4,7 +4,14 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Engine } from '../server/engine.js';
-import { defaultProject, KINDS, makeTrack, synthDef } from '../shared/music.js';
+import {
+  defaultProject,
+  KINDS,
+  makeTrack,
+  synthDef,
+  makeSong,
+  sectionProject,
+} from '../shared/music.js';
 
 const directory = await mkdtemp(path.join(os.tmpdir(), 'scmaker-audio-test-'));
 const engine = new Engine(directory);
@@ -104,7 +111,7 @@ try {
   assert.ok(peak < 0.99, 'Master output must not clip.');
   // Note entry is timed and quantized by SuperCollider, including early stop and loop end.
   const waitFor = async (predicate) => {
-    const deadline = Date.now() + 10000;
+    const deadline = Date.now() + 20000;
     while (!predicate()) {
       assert.ok(
         Date.now() < deadline,
@@ -166,7 +173,79 @@ try {
   assert.equal(engine.noteCapture.phase, 'finished');
   assert.equal(engine.noteCapture.notes.length, 1, 'Early stop must finalize held notes.');
   assert.equal(engine.noteCapture.notes[0].length, 2);
+  // An arranged take must finish without a browser or a manual recording stop.
+  const song = makeSong(defaultProject());
+  song.tempo = 240;
+  const first = song.sections[0];
+  first.name = 'Intro';
+  first.tracks = [makeTrack('bass', 't_bass', 'Bass')];
+  first.tracks[0].notes = [{ id: 'intro', start: 0, midi: 48, length: 28, velocity: 0.8 }];
+  const chorus = structuredClone(first);
+  chorus.id = 's_chorus';
+  chorus.name = 'Chorus';
+  chorus.tracks[0].recipe.wave = 'sine';
+  chorus.tracks[0].code = synthDef('t_bass', chorus.tracks[0].recipe);
+  chorus.tracks[0].notes[0].midi = 60;
+  const outro = { id: 's_outro', name: 'Outro', tracks: [makeTrack('pad', 't_bass', 'Pad')] };
+  outro.tracks[0].recipe.release = 1.2;
+  outro.tracks[0].code = synthDef('t_bass', outro.tracks[0].recipe);
+  outro.tracks[0].notes = [{ id: 'outro', start: 0, midi: 55, length: 32, velocity: 0.8 }];
+  song.sections.push(chorus, outro);
+  song.arrangement = [
+    { sectionId: first.id, repeats: 1 },
+    { sectionId: chorus.id, repeats: 2 },
+    { sectionId: outro.id, repeats: 1 },
+  ];
+  await engine.run(() => engine.playSong(song, 'wav'));
+  const positions = new Set();
+  // Editing/syncing the workspace cannot mute a later section in this frozen take.
+  chorus.tracks[0].muted = true;
+  await engine.run(() => engine.sync(sectionProject(song, chorus.id)));
+  await waitFor(() => {
+    positions.add(`${engine.song.position}:${engine.song.repeat}`);
+    return engine.song.phase === 'finished';
+  });
+  assert.deepEqual([...positions], ['0:1', '1:1', '1:2', '2:1']);
+  assert.equal(engine.playing, false);
+  assert.equal(engine.recording, null);
+  assert.ok(engine.song.name.endsWith('.wav'));
+  const arrangedWav = await readFile(path.join(directory, 'recordings', engine.song.name));
+  let arrangedAudio;
+  for (let offset = 12; offset + 8 <= arrangedWav.length; ) {
+    const size = arrangedWav.readUInt32LE(offset + 4);
+    if (arrangedWav.toString('ascii', offset, offset + 4) === 'data')
+      arrangedAudio = arrangedWav.subarray(offset + 8, offset + 8 + size);
+    offset += 8 + size + (size % 2);
+  }
+  const duration = arrangedAudio.length / (sampleRate * 4);
+  assert.ok(
+    duration >= 12.2 && duration < 13.5,
+    `Expected all eight bars and ending tail, got ${duration}s.`,
+  );
+  const windowRms = (start, end) => {
+    let energy = 0,
+      count = 0;
+    for (let i = Math.floor(start * sampleRate) * 4; i < Math.floor(end * sampleRate) * 4; i += 2) {
+      const sample = arrangedAudio.readInt16LE(i) / 32768;
+      energy += sample * sample;
+      count++;
+    }
+    return Math.sqrt(energy / count);
+  };
+  for (const start of [0.3, 2.3, 4.3, 6.8])
+    assert.ok(
+      windowRms(start, start + 0.4) > 0.001,
+      `Section at ${start}s must contain real audio.`,
+    );
+  assert.ok(windowRms(8.2, 8.6) > 0.001, 'The outro release must survive the song boundary.');
+  assert.ok(
+    windowRms(11.8, 12.1) < windowRms(8.2, 8.6) * 0.1,
+    'The ending must decay before recording closes.',
+  );
   assert.doesNotMatch(engine.logs.join('\n'), /ERROR:|FAILURE IN SERVER/);
+  console.log(
+    `PASS: arranged SuperCollider song, independent section sounds, ordered repeats, automatic stereo recording, ${duration.toFixed(2)}s including an audible ending tail.`,
+  );
   console.log(
     `PASS: real SuperCollider stereo WAV, ${sampleRate} Hz, ${(audio.length / (sampleRate * channels * 2)).toFixed(2)} s, peak ${peak.toFixed(3)}, RMS ${rms.toFixed(3)}. All stock and custom instruments compiled; live notes, clock updates, and quantized note recording worked.`,
   );

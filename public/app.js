@@ -1,7 +1,8 @@
 import { $ } from './ui/dom.js';
 import { createFeedback } from './ui/feedback.js';
 import { createApiClient } from './api.js';
-import { createStudioState } from './state.js';
+import { createStudioState, currentProject } from './state.js';
+import { createArrangement } from './features/arrangement.js';
 import { createKeyboard } from './features/keyboard.js';
 import { createTransport } from './features/transport.js';
 import { createNoteRecording } from './features/note-recording.js';
@@ -31,6 +32,7 @@ const transport = createTransport({
   captureNotes: (capture) => noteRecording.update(capture),
   beginCapture: (capture, prepared) => noteRecording.begin(capture, prepared),
   prepareCapture: (rerecord) => noteRecording.prepare(rerecord),
+  disableArrangement: (disabled) => arrangement.setDisabled(disabled),
 });
 const tracks = createTracks({
   state,
@@ -63,11 +65,29 @@ const projectFiles = createProjectFiles({
   api,
   notify,
   action,
-  selectTrack,
+  selectSection,
   releaseAllKeys: keyboard.releaseAllKeys,
   stopPlayback: transport.stop,
-  onChange: transport.scheduleSync,
+  onChange: () => {
+    transport.scheduleSync();
+    arrangement.updateSummary();
+  },
 });
+const arrangement = createArrangement({
+  state,
+  action,
+  markDirty,
+  selectSection,
+  stopPlayback: transport.stop,
+});
+
+async function selectSection(id) {
+  if (state.engine.playing) await transport.stop();
+  state.selectedSectionId = id;
+  selectTrack(currentProject(state).tracks[0].id);
+  arrangement.render();
+  transport.scheduleSync();
+}
 
 function selectTrack(id) {
   keyboard.releaseAllKeys();

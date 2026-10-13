@@ -1,6 +1,6 @@
 import { $, element } from '../../ui/dom.js';
 import { currentTrack, trackColor } from '../../state.js';
-import { STEPS, noteName } from '/shared/music.js';
+import { MAX_NOTES, STEPS, noteName } from '/shared/music.js';
 import { bindNoteDrag } from './note-drag.js';
 
 export function createSequencer({ state, notify, markDirty, renderTracks }) {
@@ -169,8 +169,8 @@ export function createSequencer({ state, notify, markDirty, renderTracks }) {
             renderRoll();
             return;
           }
-          if (track.notes.length >= 256) {
-            notify('This instrument has reached the 256-note limit.', true);
+          if (track.notes.length >= MAX_NOTES) {
+            notify(`This instrument has reached the ${MAX_NOTES}-note limit.`, true);
             return;
           }
           const length = Math.min(

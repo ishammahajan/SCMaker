@@ -5,7 +5,8 @@ import { randomBytes } from 'node:crypto';
 import { mkdir, writeFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { encodeOSC, decodeOSC } from './osc.js';
-import { synthDef } from '../shared/music.js';
+import { MAX_MIDI, MAX_NOTES, MIN_MIDI, STEPS, synthDef } from '../shared/music.js';
+import { RECORDING_FORMATS, isSongActive } from '../shared/playback.js';
 import {
   bootstrap,
   projectCode,
@@ -36,6 +37,17 @@ async function freePort() {
   await new Promise((resolve) => socket.close(resolve));
   return port;
 }
+
+const validCapturedNote = (midi, start, length) =>
+  Number.isInteger(midi) &&
+  midi >= MIN_MIDI &&
+  midi <= MAX_MIDI &&
+  Number.isInteger(start) &&
+  start >= 0 &&
+  start < STEPS &&
+  Number.isInteger(length) &&
+  length >= 1 &&
+  start + length <= STEPS;
 
 export class Engine {
   constructor(directory) {
@@ -97,80 +109,7 @@ export class Engine {
         if (remote.address !== '127.0.0.1' || remote.port !== this.langPort) return;
         try {
           const { address, args } = decodeOSC(buffer);
-          if (args[0] !== this.token) return;
-          if (address === '/scmaker/ready') {
-            this.state = 'ready';
-            this.readyResolve();
-          }
-          if (address === '/scmaker/audioError') {
-            this.audioError = String(args[1]);
-            this.log(this.audioError);
-            this.run(async () => {
-              if (!this.playing && !this.songActive) return;
-              if (this.songActive) this.song.error = this.audioError;
-              await this.stop();
-            }).catch((error) => this.log(`Audio cleanup failed: ${error.message}`));
-          }
-          if (address === '/scmaker/step') {
-            this.step = args[1];
-            this.stepAt = Date.now() + 80;
-          }
-          if (this.songActive && args[1] === this.song.id) {
-            if (address === '/scmaker/songStep') {
-              this.step = args[2];
-              this.stepAt = Date.now() + 80;
-              this.song.position = args[3];
-              this.song.repeat = args[4];
-            }
-            if (address === '/scmaker/songTail') {
-              this.song.phase = 'tail';
-              this.step = -1;
-            }
-            if (address === '/scmaker/songFinished')
-              this.run(() => this.finishSong(args[1])).catch((error) => this.log(error.message));
-          }
-          if (this.noteCapture && args[1] === this.noteCapture.id) {
-            if (address === '/scmaker/countIn') this.noteCapture.countIn = args[2];
-            if (address === '/scmaker/captureStarted') {
-              this.noteCapture.countIn = 0;
-              this.noteCapture.phase = 'recording';
-            }
-            if (address === '/scmaker/captured') {
-              const [, , midi, start, length] = args;
-              if (
-                Number.isInteger(midi) &&
-                midi >= 24 &&
-                midi <= 96 &&
-                Number.isInteger(start) &&
-                start >= 0 &&
-                start < 32 &&
-                Number.isInteger(length) &&
-                length >= 1 &&
-                start + length <= 32 &&
-                this.noteCapture.notes.length < 256
-              )
-                this.noteCapture.notes.push({
-                  id: `n_${this.capturePrefix}_${this.noteCapture.id}_${this.noteCapture.notes.length}`,
-                  midi,
-                  start,
-                  length,
-                  velocity: this.noteCapture.velocity,
-                });
-            }
-            if (address === '/scmaker/captureFinished') {
-              this.noteCapture.phase = 'finished';
-              this.playing = false;
-              this.step = -1;
-            }
-          }
-          if (address === '/scmaker/reply') {
-            const item = this.pending.get(args[1]);
-            if (item) {
-              clearTimeout(item.timer);
-              this.pending.delete(args[1]);
-              args[2] ? item.resolve() : item.reject(new Error(args[3]));
-            }
-          }
+          if (args[0] === this.token) this.handleMessage(address, args);
         } catch {
           /* Ignore unrelated or malformed UDP packets. */
         }
@@ -201,6 +140,75 @@ export class Engine {
     } catch (error) {
       this.fail(error);
       this.kill();
+    }
+  }
+  // Authenticated replies from sclang. args[0] is the session token.
+  handleMessage(address, args) {
+    if (address === '/scmaker/ready') {
+      this.state = 'ready';
+      this.readyResolve();
+    }
+    if (address === '/scmaker/audioError') {
+      this.audioError = String(args[1]);
+      this.log(this.audioError);
+      this.run(async () => {
+        if (!this.playing && !this.songActive) return;
+        if (this.songActive) this.song.error = this.audioError;
+        await this.stop();
+      }).catch((error) => this.log(`Audio cleanup failed: ${error.message}`));
+    }
+    if (address === '/scmaker/step') {
+      this.step = args[1];
+      this.stepAt = Date.now() + 80;
+    }
+    if (this.songActive && args[1] === this.song.id) this.handleSongMessage(address, args);
+    if (this.noteCapture && args[1] === this.noteCapture.id)
+      this.handleCaptureMessage(address, args);
+    if (address === '/scmaker/reply') {
+      const item = this.pending.get(args[1]);
+      if (item) {
+        clearTimeout(item.timer);
+        this.pending.delete(args[1]);
+        args[2] ? item.resolve() : item.reject(new Error(args[3]));
+      }
+    }
+  }
+  handleSongMessage(address, args) {
+    if (address === '/scmaker/songStep') {
+      this.step = args[2];
+      this.stepAt = Date.now() + 80;
+      this.song.position = args[3];
+      this.song.repeat = args[4];
+    }
+    if (address === '/scmaker/songTail') {
+      this.song.phase = 'tail';
+      this.step = -1;
+    }
+    if (address === '/scmaker/songFinished')
+      this.run(() => this.finishSong(args[1])).catch((error) => this.log(error.message));
+  }
+  handleCaptureMessage(address, args) {
+    const capture = this.noteCapture;
+    if (address === '/scmaker/countIn') capture.countIn = args[2];
+    if (address === '/scmaker/captureStarted') {
+      capture.countIn = 0;
+      capture.phase = 'recording';
+    }
+    if (address === '/scmaker/captured') {
+      const [, , midi, start, length] = args;
+      if (validCapturedNote(midi, start, length) && capture.notes.length < MAX_NOTES)
+        capture.notes.push({
+          id: `n_${this.capturePrefix}_${capture.id}_${capture.notes.length}`,
+          midi,
+          start,
+          length,
+          velocity: capture.velocity,
+        });
+    }
+    if (address === '/scmaker/captureFinished') {
+      capture.phase = 'finished';
+      this.playing = false;
+      this.step = -1;
     }
   }
   fail(error) {
@@ -276,7 +284,7 @@ export class Engine {
     await this.compileTracks([track]);
   }
   get songActive() {
-    return ['playing', 'tail', 'finishing'].includes(this.song?.phase);
+    return isSongActive(this.song);
   }
   async sync(project) {
     // Song playback uses a frozen arrangement. Workspace edits apply next time.
@@ -406,7 +414,7 @@ export class Engine {
   }
   async startRecording(format = 'mp3') {
     if (this.songActive) throw new Error('Stop song playback before starting a manual recording.');
-    if (!['mp3', 'wav', 'flac'].includes(format)) throw new Error('Unknown recording format.');
+    if (!RECORDING_FORMATS.includes(format)) throw new Error('Unknown recording format.');
     if (this.recording) throw new Error('Already recording.');
     if (format !== 'wav' && !hasCommand('ffmpeg'))
       throw new Error('Install FFmpeg for MP3 or FLAC recording, or select WAV.');

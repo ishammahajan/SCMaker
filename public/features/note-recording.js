@@ -1,4 +1,4 @@
-import { sectionProject } from '../../shared/project.js';
+import { MAX_NOTES, sectionProject } from '../../shared/project.js';
 
 // A take belongs to the project, section, and track armed at its start.
 export function createNoteRecording({
@@ -78,7 +78,7 @@ export function createNoteRecording({
           note.start < other.start + other.length &&
           other.start < note.start + note.length,
       );
-      if (!track || track.notes.length >= 256 || overlaps) {
+      if (!track || track.notes.length >= MAX_NOTES || overlaps) {
         take.skipped++;
         continue;
       }

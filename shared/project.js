@@ -3,6 +3,9 @@ import { synthDef } from './synthdef.js';
 import { assert, number, text } from './validation.js';
 
 export const STEPS = 32;
+export const MIN_MIDI = 24;
+export const MAX_MIDI = 96;
+export const MAX_NOTES = 256;
 // Bound serialized project data, not the number of instruments.
 export const MAX_PROJECT_BYTES = 16 * 1024 * 1024;
 export const MAX_SECTIONS = 16;
@@ -41,7 +44,7 @@ export function validateProject(value) {
       track.id,
     );
     assert(typeof track.muted === 'boolean', 'Invalid mute state.');
-    assert(Array.isArray(track.notes) && track.notes.length <= 256, 'Too many notes.');
+    assert(Array.isArray(track.notes) && track.notes.length <= MAX_NOTES, 'Too many notes.');
     const noteIds = new Set();
     const notes = track.notes.map((note) => {
       assert(
@@ -54,7 +57,7 @@ export function validateProject(value) {
       noteIds.add(note.id);
       const start = number(note.start, 0, STEPS - 1, 'note start');
       const length = number(note.length, 1, STEPS - start, 'note length');
-      const midi = number(note.midi, 24, 96, 'pitch');
+      const midi = number(note.midi, MIN_MIDI, MAX_MIDI, 'pitch');
       assert(
         [start, length, midi].every(Number.isInteger),
         'Notes must use whole steps and MIDI pitches.',

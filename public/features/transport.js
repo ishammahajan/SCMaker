@@ -1,5 +1,7 @@
 import { $, element, togglePanel } from '../ui/dom.js';
 import { currentProject } from '../state.js';
+import { isCapturing, isSongActive } from '../../shared/playback.js';
+import { songPositionText, transportView } from './transport-view.js';
 
 export function createTransport({
   state,
@@ -24,14 +26,12 @@ export function createTransport({
   let handledSongId = null;
   let lastAudioError = null;
   const songScope = () => $('playback-scope').value === 'song';
-  const songActive = () => ['playing', 'tail', 'finishing'].includes(state.engine.song?.phase);
+  const songActive = () => isSongActive(state.engine.song);
+  // Keep the take's tempo and backing sequence fixed. Sync edits after it finishes.
+  const captureInProgress = () => captureBusy || isCapturing(state.engine.noteCapture);
   function scheduleSync() {
     if (state.engine.state !== 'ready' || songActive()) return;
-    // Keep the take's tempo and backing sequence fixed. Sync edits after it finishes.
-    if (
-      captureBusy ||
-      (state.engine.noteCapture && state.engine.noteCapture.phase !== 'finished')
-    ) {
+    if (captureInProgress()) {
       syncWanted = true;
       return;
     }
@@ -40,10 +40,7 @@ export function createTransport({
   }
   async function syncAudio() {
     if (songActive()) return;
-    if (
-      captureBusy ||
-      (state.engine.noteCapture && state.engine.noteCapture.phase !== 'finished')
-    ) {
+    if (captureInProgress()) {
       syncWanted = true;
       return;
     }
@@ -77,88 +74,46 @@ export function createTransport({
     paintEngine();
   }
   function paintEngine() {
-    const ready = state.engine.state === 'ready';
-    $('engine-status').textContent = ready
-      ? state.engine.audioError
-        ? `Audio stopped: ${state.engine.audioError}`
-        : 'SuperCollider connected · audio plays on this computer'
-      : state.engine.error || 'Starting SuperCollider…';
-    $('engine-status').title = $('engine-status').textContent;
+    const view = transportView(state.engine, {
+      songScope: songScope(),
+      songBusy,
+      captureBusy,
+      recordingBusy,
+    });
+    $('engine-status').textContent = view.status;
+    $('engine-status').title = view.status;
     if (state.engine.audioError && state.engine.audioError !== lastAudioError)
       notify(state.engine.audioError, true);
     lastAudioError = state.engine.audioError;
-    $('engine-light').className =
-      `status-light${ready ? '' : state.engine.state === 'error' ? ' error' : ' waiting'}`;
-    $('stop').disabled = !ready;
-    const activeSong = songActive();
-    $('play').disabled =
-      !ready ||
-      songBusy ||
-      captureBusy ||
-      (activeSong && !state.engine.playing) ||
-      (songScope() && !activeSong && Boolean(state.engine.recording));
-    $('record').disabled = !ready || recordingBusy || songBusy || activeSong;
-    $('recording-format').disabled =
-      !ready || recordingBusy || songBusy || activeSong || Boolean(state.engine.recording);
-    $('playback-scope').disabled =
-      songBusy ||
-      captureBusy ||
-      activeSong ||
-      state.engine.playing ||
-      Boolean(state.engine.recording);
-    disableArrangement(songBusy || activeSong);
+    $('engine-light').className = `status-light${view.light ? ` ${view.light}` : ''}`;
+    $('stop').disabled = view.disabled.stop;
+    $('play').disabled = view.disabled.play;
+    $('record').disabled = view.disabled.record;
+    $('recording-format').disabled = view.disabled.recordingFormat;
+    $('playback-scope').disabled = view.disabled.playbackScope;
+    disableArrangement(view.disabled.arrangement);
     for (const id of ['audition', 'audition-original', 'audition-draft'])
-      $(id).disabled = !ready || activeSong;
+      $(id).disabled = view.disabled.audition;
     paintSong();
     captureNotes(state.engine.noteCapture);
     if (syncWanted && !syncInFlight && state.engine.noteCapture?.phase === 'finished') {
       syncWanted = false;
       scheduleSync();
     }
-    const capture = state.engine.noteCapture;
-    const capturing = capture && capture.phase !== 'finished';
-    $('record-notes').disabled = !ready || captureBusy || songBusy || activeSong;
-    $('record-notes').setAttribute('aria-pressed', String(Boolean(capturing)));
-    $('record-notes').textContent = capturing
-      ? capture.phase === 'count-in'
-        ? `Count-in: ${capture.countIn} · Stop`
-        : 'Stop recording notes'
-      : 'Record notes';
+    $('record-notes').disabled = view.disabled.recordNotes;
+    $('record-notes').setAttribute('aria-pressed', String(view.capturing));
+    $('record-notes').textContent = view.recordNotesLabel;
     $('play').replaceChildren(
-      element('span', '', state.engine.playing ? '■' : '▶'),
-      document.createTextNode(state.engine.playing ? ' Stop' : ' Play'),
+      element('span', '', view.playIcon),
+      document.createTextNode(view.playLabel),
     );
-    $('play').setAttribute(
-      'aria-label',
-      state.engine.playing
-        ? activeSong
-          ? 'Stop song'
-          : 'Stop loop'
-        : songScope()
-          ? 'Play song'
-          : 'Play loop',
-    );
-    $('record').classList.toggle('active', Boolean(state.engine.recording));
+    $('play').setAttribute('aria-label', view.playAria);
+    $('record').classList.toggle('active', view.recording);
     $('record').replaceChildren(
       element('span', 'record-dot'),
-      document.createTextNode(
-        activeSong && state.engine.recording
-          ? 'Recording…'
-          : state.engine.recording
-            ? 'Finish take'
-            : 'Record',
-      ),
+      document.createTextNode(view.recordLabel),
     );
-    $('record').setAttribute(
-      'aria-label',
-      activeSong && state.engine.recording
-        ? 'Recording song'
-        : state.engine.recording
-          ? 'Finish take'
-          : songScope()
-            ? 'Record song'
-            : 'Record stereo audio',
-    );
+    $('record').setAttribute('aria-label', view.recordAria);
     if (!$('engine-log').hidden) $('engine-log').textContent = state.engine.log;
     paintStep();
   }
@@ -176,18 +131,7 @@ export function createTransport({
       $('song-position').textContent = '';
       return;
     }
-    if (song.phase === 'playing') {
-      const entry = song.entries[song.position];
-      $('song-position').textContent =
-        `${song.position + 1}/${song.entries.length}: ${entry.name} · repeat ${song.repeat}/${entry.repeats} · bar ${Math.floor(Math.max(0, state.engine.step) / 16) + 1}/2`;
-    } else {
-      $('song-position').textContent =
-        song.phase === 'tail'
-          ? 'Ending tail…'
-          : song.phase === 'finishing'
-            ? 'Preparing recording…'
-            : 'Song stopped';
-    }
+    $('song-position').textContent = songPositionText(song, state.engine.step);
     $('song-position').title = $('song-position').textContent;
     if (song.phase === 'finished' && handledSongId !== song.id) {
       handledSongId = song.id;
@@ -208,7 +152,7 @@ export function createTransport({
     clearTimeout(syncTimer);
     paintEngine();
     try {
-      if (state.engine.noteCapture && state.engine.noteCapture.phase !== 'finished') await stop();
+      if (isCapturing(state.engine.noteCapture)) await stop();
       state.engine = await api(recorded ? 'song/record' : 'song/play', {
         project: state.project,
         ...(recorded ? { format: $('recording-format').value } : {}),
@@ -251,8 +195,7 @@ export function createTransport({
     captureBusy = true;
     $('record-notes').disabled = true;
     try {
-      const capture = state.engine.noteCapture;
-      if (capture && capture.phase !== 'finished') {
+      if (isCapturing(state.engine.noteCapture)) {
         await stop();
         if (!rerecord) return;
       }

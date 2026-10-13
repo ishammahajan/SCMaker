@@ -1,6 +1,6 @@
 import { $, element } from '../ui/dom.js';
 import { currentTrack, currentProject } from '../state.js';
-import { noteName } from '/shared/music.js';
+import { MAX_MIDI, noteName } from '/shared/music.js';
 
 export const KEY_MAP = ['a', 'w', 's', 'e', 'd', 'f', 't', 'g', 'y', 'h', 'u', 'j', 'k'];
 
@@ -12,7 +12,7 @@ export function createKeyboard({ state, api, notify, action }) {
     const base = Number($('keyboard-octave').value);
     for (let offset = 0; offset <= 24; offset++) {
       const midi = base + offset;
-      if (midi > 96) continue;
+      if (midi > MAX_MIDI) continue;
       const black = [1, 3, 6, 8, 10].includes(midi % 12);
       const button = element(
         'button',

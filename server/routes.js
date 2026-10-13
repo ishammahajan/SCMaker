@@ -1,8 +1,22 @@
 import path from 'node:path';
 import { stat } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
-import { validateProject, validateRecipe, interpretPrompt } from '../shared/music.js';
+import {
+  MAX_MIDI,
+  MIN_MIDI,
+  validateProject,
+  validateRecipe,
+  interpretPrompt,
+} from '../shared/music.js';
+import { RECORDING_FORMATS } from '../shared/playback.js';
 import { sendJson as json, validNumber } from './http.js';
+
+const recordingName = new RegExp(`^take-[0-9TZ-]+\\.(${RECORDING_FORMATS.join('|')})$`);
+
+function recordingFormat(format = 'mp3') {
+  if (!RECORDING_FORMATS.includes(format)) throw new Error('Unknown recording format.');
+  return format;
+}
 
 export function createApiRoutes({ engine, projects, token, dataDir, generateInstrument }) {
   async function post(pathname, input, response) {
@@ -33,14 +47,7 @@ export function createApiRoutes({ engine, projects, token, dataDir, generateInst
     if (pathname === '/api/song/play' || pathname === '/api/song/record') {
       const project = validateProject(input.project);
       if (project.version !== 2) throw new Error('A song arrangement is required.');
-      const format =
-        pathname === '/api/song/record'
-          ? input.format === undefined
-            ? 'mp3'
-            : input.format
-          : undefined;
-      if (pathname === '/api/song/record' && !['mp3', 'wav', 'flac'].includes(format))
-        throw new Error('Unknown recording format.');
+      const format = pathname === '/api/song/record' ? recordingFormat(input.format) : undefined;
       await engine.run(() => engine.playSong(project, format));
       return json(response, 200, engine.status());
     }
@@ -63,7 +70,11 @@ export function createApiRoutes({ engine, projects, token, dataDir, generateInst
       const recipe = validateRecipe(input.recipe);
       const midi = input.midi ?? 48;
       const reverb = input.reverb ?? 0.05;
-      if (!Number.isInteger(midi) || !validNumber(midi, 24, 96) || !validNumber(reverb, 0, 1))
+      if (
+        !Number.isInteger(midi) ||
+        !validNumber(midi, MIN_MIDI, MAX_MIDI) ||
+        !validNumber(reverb, 0, 1)
+      )
         throw new Error('Invalid audition pitch or reverb.');
       await engine.run(() => engine.audition(recipe, midi, reverb));
       return json(response, 200, { ok: true });
@@ -73,7 +84,7 @@ export function createApiRoutes({ engine, projects, token, dataDir, generateInst
         typeof input.on !== 'boolean' ||
         !/^[a-z0-9_]{1,60}$/.test(input.voiceId) ||
         !Number.isInteger(input.midi) ||
-        !validNumber(input.midi, 24, 96)
+        !validNumber(input.midi, MIN_MIDI, MAX_MIDI)
       )
         throw new Error('Invalid note input.');
       const project = validateProject(input.project);
@@ -84,8 +95,7 @@ export function createApiRoutes({ engine, projects, token, dataDir, generateInst
       return json(response, 200, { ok: true });
     }
     if (pathname === '/api/record/start') {
-      const format = input.format === undefined ? 'mp3' : input.format;
-      if (!['mp3', 'wav', 'flac'].includes(format)) throw new Error('Unknown recording format.');
+      const format = recordingFormat(input.format);
       const name = await engine.run(() => engine.startRecording(format));
       return json(response, 200, { name });
     }
@@ -112,7 +122,7 @@ export function createApiRoutes({ engine, projects, token, dataDir, generateInst
     }
     if (pathname.startsWith('/api/recordings/')) {
       const name = pathname.slice('/api/recordings/'.length);
-      if (!/^take-[0-9TZ-]+\.(wav|mp3|flac)$/.test(name) || engine.recording === name)
+      if (!recordingName.test(name) || engine.recording === name)
         return json(response, 404, { error: 'Recording is unavailable or still open.' });
       const file = path.join(dataDir, 'recordings', name);
       const size = (await stat(file)).size;

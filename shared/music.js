@@ -2,6 +2,9 @@
 export { KINDS, WAVES, CONTROLS, preset, validateRecipe, noteName } from './instruments.js';
 export {
   STEPS,
+  MIN_MIDI,
+  MAX_MIDI,
+  MAX_NOTES,
   MAX_PROJECT_BYTES,
   MAX_SECTIONS,
   MAX_ARRANGEMENT,

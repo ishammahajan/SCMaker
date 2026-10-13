@@ -26,6 +26,11 @@
           BPM
           <input id="tempo" type="number" min="40" max="240" value="108" />
         </label>
+        <label class="sr-only" for="playback-scope">Playback scope</label>
+        <select id="playback-scope" title="Playback scope">
+          <option value="section">Section</option>
+          <option value="song">Song</option>
+        </select>
         <button id="play" class="primary transport-play" disabled aria-label="Play loop">
           <span aria-hidden="true">▶</span>
           Play
@@ -43,18 +48,99 @@
         </button>
       </div>
       <button id="save" class="outline">
-        Save project
+        Save
         <kbd>⌘ / Ctrl S</kbd>
       </button>
     </header>
+    <section class="song-strip" aria-label="Song arrangement">
+      <button id="instruments-toggle" class="outline" popovertarget="instrument-drawer">
+        Instruments
+      </button>
+      <fieldset id="arrangement-editor">
+        <legend class="sr-only">Sections and arrangement</legend>
+        <div class="section-library">
+          <label class="sr-only" for="section-select">Edit section</label>
+          <select id="section-select" title="Edit section, including unused sections"></select>
+          <button
+            id="section-options"
+            class="subtle"
+            popovertarget="section-menu"
+            aria-label="Section options"
+          >
+            ⋯
+          </button>
+        </div>
+        <div id="arrangement-list" aria-label="Ordered song sections"></div>
+        <button
+          id="append-section"
+          class="subtle"
+          aria-label="Append selected section"
+          title="Append selected section"
+        >
+          ＋
+        </button>
+        <div
+          id="section-menu"
+          class="song-menu"
+          popover="auto"
+          role="dialog"
+          aria-labelledby="section-menu-heading"
+        >
+          <h2 id="section-menu-heading">Section options</h2>
+          <label for="section-name">Section name</label>
+          <input id="section-name" maxlength="60" />
+          <p class="muted">
+            Two bars with independent sounds and notes. Duplicate to make a variation.
+          </p>
+          <span id="menu-summary" class="muted"></span>
+          <button id="new-section" class="outline">New section · empty notes</button>
+          <button id="duplicate-section" class="outline">Duplicate section</button>
+          <button id="delete-section" class="subtle">Delete section</button>
+          <button class="subtle" popovertarget="section-menu" popovertargetaction="hide">
+            Close
+          </button>
+        </div>
+        <div
+          id="entry-menu"
+          class="song-menu"
+          popover="auto"
+          role="dialog"
+          aria-labelledby="entry-heading"
+        >
+          <h2 id="entry-heading">Arrangement entry</h2>
+          <label for="entry-section">Section</label>
+          <select id="entry-section"></select>
+          <label for="entry-repeats">Repeats</label>
+          <input id="entry-repeats" type="number" min="1" max="16" />
+          <div class="entry-actions">
+            <button id="entry-up" class="outline">Move earlier</button>
+            <button id="entry-down" class="outline">Move later</button>
+          </div>
+          <button id="entry-remove" class="subtle">Remove entry</button>
+          <button class="subtle" popovertarget="entry-menu" popovertargetaction="hide">
+            Close
+          </button>
+        </div>
+      </fieldset>
+      <span id="song-summary" class="muted" title="Arrangement duration"></span>
+    </section>
     <div class="workspace">
-      <aside class="sidebar" aria-label="Project instruments">
+      <aside id="instrument-drawer" class="sidebar" aria-label="Project instruments">
+        <button
+          id="close-instruments"
+          class="subtle"
+          popovertarget="instrument-drawer"
+          popovertargetaction="hide"
+        >
+          Back to music
+        </button>
         <div class="section-label">
           INSTRUMENTS
-          <span id="track-count">0 / 4</span>
+          <span id="track-count">0</span>
         </div>
         <div id="tracks"></div>
         <button id="add-track" class="add-track">＋ Add instrument</button>
+        <div id="track-mix" aria-label="Selected instrument mix"></div>
         <div class="sidebar-bottom">
           <button id="export-project" class="text-button">↓ Export project (.json)</button>
           <button id="import-project" class="text-button">↑ Open project file</button>
@@ -198,42 +284,13 @@
             <pre><code id="synth-code"></code></pre>
           </div>
         </dialog>
-        <section class="song-panel" aria-labelledby="song-heading">
-          <div class="panel-heading">
-            <h2 id="song-heading">Song arrangement</h2>
-            <span id="song-summary" class="muted"></span>
-          </div>
-          <fieldset id="arrangement-editor">
-            <legend class="sr-only">Sections and arrangement</legend>
-            <div class="section-tools">
-              <label for="section-select">Edit section</label>
-              <select id="section-select"></select>
-              <label class="sr-only" for="section-name">Section name</label>
-              <input id="section-name" maxlength="60" />
-              <button id="new-section" class="outline">New section</button>
-              <button id="duplicate-section" class="subtle">Duplicate</button>
-              <button id="delete-section" class="subtle">Delete section</button>
-            </div>
-            <p class="muted song-hint">
-              Each section is two bars with its own sounds and notes. Repeated entries reuse the
-              section. Duplicate it to make a variation.
-            </p>
-            <div id="arrangement-list"></div>
-            <button id="append-section" class="subtle">＋ Append selected section</button>
-          </fieldset>
-          <div class="song-actions">
-            <button id="play-song" class="primary" disabled>▶ Play song</button>
-            <button id="record-song" class="record" disabled>
-              <span class="record-dot" aria-hidden="true"></span>
-              Record song
-            </button>
-            <span id="song-position" role="status" class="muted"></span>
-          </div>
-        </section>
         <section class="sequencer" aria-labelledby="sequencer-heading">
           <div class="sequencer-toolbar">
             <div>
-              <div class="eyebrow">2 bars · 1/16 grid</div>
+              <div class="eyebrow">
+                <span id="editing-section"></span>
+                · 2 bars · 1/16 grid
+              </div>
               <h2 id="sequencer-heading">
                 Bass 01
                 <span class="muted">sequence</span>
@@ -294,7 +351,7 @@
               <kbd>Space</kbd>
               play / stop
               <span class="slash">·</span>
-              <kbd>1–4</kbd>
+              <kbd>1–9</kbd>
               select instrument
               <span class="slash">·</span>
               <kbd>Esc</kbd>
@@ -318,6 +375,9 @@
               </select>
             </label>
           </div>
+          <button id="keyboard-toggle" class="subtle" aria-expanded="true" aria-controls="keyboard">
+            Hide keys
+          </button>
           <div id="keyboard" aria-label="Audition keyboard"></div>
         </div>
       </main>
@@ -335,6 +395,7 @@
           Engine log
         </button>
       </div>
+      <span id="song-position" role="status" class="muted"></span>
       <div id="recording-result"></div>
     </footer>
     <pre id="engine-log" class="engine-log" hidden></pre>

@@ -15,10 +15,9 @@ test('create, compare, keep, sequence, save, reopen, and record with real SuperC
   await expect(page.locator('#prompt')).toBeHidden();
   await expect(page.locator('#controls')).toBeHidden();
   await expect(page.locator('#piano-roll')).toBeVisible();
-  expect((await page.locator('.song-panel').boundingBox()).y).toBeLessThan(300);
-  expect((await page.locator('.sequencer').boundingBox()).y).toBeGreaterThan(
-    (await page.locator('.song-panel').boundingBox()).y,
-  );
+  const strip = await page.locator('.song-strip').boundingBox();
+  expect(strip.height).toBeLessThan(70);
+  expect((await page.locator('.sequencer').boundingBox()).y).toBeGreaterThan(strip.y);
   const oldNotes = await page.locator('.roll-note').count();
   await page.locator('#play').click();
   await expect(page.locator('#play')).toHaveAttribute('aria-label', 'Stop loop');
@@ -121,7 +120,7 @@ test('create, compare, keep, sequence, save, reopen, and record with real SuperC
   await page.locator('#new-name').fill('Snare 01');
   await page.locator('#add-form button[type="submit"]').click();
   await expect(page.locator('.track-card')).toHaveCount(4);
-  await expect(page.locator('#add-track')).toBeDisabled();
+  await expect(page.locator('#add-track')).toBeEnabled();
   await expect(page.locator('#sound-dialog')).toBeVisible();
   await expect(page.locator('#instrument-heading')).toHaveText('Snare 01');
   await expect(page.locator('#wave')).toBeDisabled();

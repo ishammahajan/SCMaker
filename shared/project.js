@@ -3,7 +3,8 @@ import { synthDef } from './synthdef.js';
 import { assert, number, text } from './validation.js';
 
 export const STEPS = 32;
-export const MAX_TRACKS = 4;
+// Bound serialized project data, not the number of instruments.
+export const MAX_PROJECT_BYTES = 16 * 1024 * 1024;
 export const MAX_SECTIONS = 16;
 export const MAX_ARRANGEMENT = 32;
 const clone = (value) => structuredClone(value);
@@ -24,10 +25,7 @@ export function validateProject(value) {
   assert(value && value.version === 1, 'Unsupported project format.');
   const name = text(value.name, 100, 'project name');
   const tempo = number(value.tempo, 40, 240, 'tempo');
-  assert(
-    Array.isArray(value.tracks) && value.tracks.length >= 1 && value.tracks.length <= MAX_TRACKS,
-    'Use one to four instruments.',
-  );
+  assert(Array.isArray(value.tracks) && value.tracks.length >= 1, 'Use at least one instrument.');
   const ids = new Set();
   const tracks = value.tracks.map((track) => {
     assert(

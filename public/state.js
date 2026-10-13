@@ -22,6 +22,7 @@ export function currentTrack(state) {
 
 export function trackColor(state) {
   return TRACK_COLORS[
-    currentProject(state).tracks.findIndex((track) => track.id === state.selectedTrackId)
+    currentProject(state).tracks.findIndex((track) => track.id === state.selectedTrackId) %
+      TRACK_COLORS.length
   ];
 }

@@ -1,47 +1,60 @@
-@media (min-width: 1500px) {
-  main {
-    padding: 35px 45px;
-  }
-  .sound-columns {
-    gap: 35px;
-  }
-}
 @media (max-width: 1150px) {
   .topbar {
-    gap: 16px;
-    padding: 15px 18px;
+    gap: 12px;
+    padding: 8px 12px;
   }
   .topbar > button kbd {
     display: none;
   }
   .project-title {
-    padding-left: 15px;
+    padding-left: 12px;
   }
   .workspace {
     grid-template-columns: 185px minmax(0, 1fr);
   }
   main {
-    padding: 25px 20px;
+    padding: 10px 12px;
   }
   .sound-columns {
     grid-template-columns: minmax(0, 1.5fr) minmax(220px, 1fr);
     gap: 20px;
   }
-  .note-toolbar {
-    gap: 7px;
+  .sequencer-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .roll-tools > span {
+    display: none;
   }
   .roll-tools {
-    align-items: flex-start;
+    justify-content: flex-end;
   }
   .keyboard-caption {
-    min-width: 145px;
+    min-width: 110px;
   }
   .keyboard-caption kbd {
     display: block;
-    margin-top: 4px;
+    margin-top: 3px;
+  }
+  .sequencer-footer > span:last-child {
+    display: none;
   }
 }
 @media (max-width: 900px) {
+  .topbar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px 12px;
+  }
+  .transport {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: center;
+  }
+  #save {
+    grid-column: 3;
+    grid-row: 1;
+  }
   .sound-columns {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -70,94 +83,202 @@
     margin: 12px 0;
     grid-template-columns: 60px 1fr 45px;
   }
-  .topbar {
-    flex-wrap: wrap;
+  .note-toolbar {
+    overflow-x: auto;
+    padding: 3px 0;
+    width: 100%;
+    flex-shrink: 0;
   }
-  .project-title {
-    flex: 1;
-  }
-  .transport {
-    margin-left: auto;
-  }
-  .topbar > button {
-    margin-left: auto;
-  }
-  .sequencer-toolbar {
-    flex-wrap: wrap;
-  }
-  .roll-tools {
-    flex-direction: column;
-    gap: 6px;
+  .note-toolbar > * {
+    flex-shrink: 0;
   }
   .keyboard-panel {
-    gap: 15px;
+    flex-wrap: wrap;
+    gap: 6px;
   }
   .keyboard-caption {
-    min-width: 125px;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
   }
   .keyboard-caption small {
-    max-width: 125px;
+    display: none;
+  }
+  #keyboard {
+    flex-basis: 100%;
+    height: 48px;
+  }
+  .piano-key.black {
+    height: 32px;
+  }
+  #song-summary {
+    display: none;
+  }
+  .statusbar {
+    flex-wrap: wrap;
+    gap: 5px 10px;
+  }
+  #song-position {
+    max-width: 100%;
   }
 }
 @media (max-width: 640px) {
   .topbar {
-    gap: 15px;
-    padding: 14px;
+    padding: 8px 10px;
+    gap: 7px 10px;
   }
   .brand {
-    font-size: 15px;
+    font-size: 13px;
+  }
+  .brand-mark {
+    font-size: 25px;
+    margin-right: 5px;
   }
   .project-title {
-    max-width: 45%;
-    margin-left: auto;
+    padding-left: 10px;
+    min-width: 0;
   }
-  .transport {
-    margin: 0;
-    flex: 1;
+  .project-title input {
+    font-size: 12px;
   }
-  .topbar > button {
+  .project-title span {
+    font-size: 9px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #save {
     font-size: 11px;
     padding: 8px;
   }
-  .workspace {
+  .transport {
+    justify-content: space-between;
+    gap: 4px;
+    min-width: 0;
+  }
+  .transport button {
+    padding: 8px;
+    font-size: 11px;
+  }
+  .transport select {
+    font-size: 11px;
+    padding: 8px 2px;
+    min-width: 0;
+  }
+  .tempo-label input {
+    width: 39px;
+    font-size: 13px;
+  }
+  .transport-play {
+    min-width: 54px;
+  }
+  .square {
+    width: 30px;
+    flex-shrink: 0;
+  }
+  .record {
+    gap: 4px;
+  }
+  .record-dot {
+    width: 6px;
+    height: 6px;
+  }
+  .song-strip {
+    padding: 5px 10px;
+    gap: 6px;
+  }
+  .song-strip fieldset {
+    gap: 3px;
+  }
+  .section-library {
+    padding-right: 3px;
+  }
+  #section-select {
+    width: 85px;
+    font-size: 11px;
+  }
+  #section-options,
+  #append-section {
+    padding: 5px;
+  }
+  #instruments-toggle {
     display: block;
-  }
-  .sidebar {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    padding: 16px;
-  }
-  .sidebar > .section-label {
-    margin-bottom: 10px;
-  }
-  .sidebar #tracks {
-    display: flex;
-    overflow-x: auto;
-    gap: 10px;
-  }
-  .track-card {
-    min-width: 165px;
-    margin: 0;
-  }
-  .track-control {
-    margin-top: 10px;
-  }
-  .add-track {
-    margin-top: 10px;
-    padding: 9px;
-  }
-  .sidebar-bottom {
-    padding: 12px 0 0;
-    display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-  .text-button {
     font-size: 10px;
-    padding: 4px 0;
+    padding: 9px 6px;
+  }
+  .arrangement-chip {
+    font-size: 11px;
+    gap: 6px;
+  }
+  .arrangement-chip span {
+    max-width: 110px;
+  }
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sidebar:not(:popover-open) {
+    display: none;
+  }
+  .sidebar:popover-open {
+    display: flex;
+    position: fixed;
+    inset: 10px auto 10px 10px;
+    margin: 0;
+    width: min(280px, calc(100vw - 20px));
+    height: calc(100dvh - 20px);
+    max-height: none;
+    border: 1px solid #596b4b;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px #0008;
+    padding: 14px;
+  }
+  #close-instruments {
+    display: block;
+    align-self: flex-end;
+    margin-bottom: 12px;
   }
   main {
-    padding: 20px 14px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .sequencer-toolbar {
+    padding: 10px;
+  }
+  .sequencer-toolbar h2 {
+    font-size: 14px;
+  }
+  .note-toolbar {
+    gap: 7px;
+  }
+  .note-toolbar button {
+    min-height: 34px;
+  }
+  .roll-tools {
+    padding: 0 10px 6px;
+  }
+  .roll-tools > div {
+    gap: 4px;
+  }
+  .roll-tools button {
+    min-height: 28px;
+  }
+  .sequencer-footer {
+    padding: 6px 10px;
+    font-size: 9px;
+  }
+  .statusbar {
+    padding: 7px 10px;
+    font-size: 9px;
+  }
+  .statusbar > div:first-child {
+    flex: 1 1 100%;
+  }
+  #recording-result {
+    max-width: 100%;
+  }
+  #song-position {
+    margin-left: 0;
   }
   .instrument-heading {
     margin-bottom: 20px;
@@ -193,43 +314,70 @@
   #controls {
     grid-template-columns: 1fr;
   }
-  .keyboard-panel {
-    flex-direction: column;
-    align-items: stretch;
+}
+@media (max-width: 360px) {
+  .transport {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1fr) 30px;
   }
-  .keyboard-caption {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 14px;
+  #recording-format {
+    grid-row: 2;
+    grid-column: 1 / 3;
   }
-  .keyboard-caption small {
-    max-width: none;
+  #record {
+    grid-row: 2;
+    grid-column: 3 / 5;
+    justify-content: center;
   }
-  .keyboard-caption kbd {
-    display: inline;
-  }
-  #keyboard {
-    min-height: 66px;
+}
+@media (max-height: 600px) {
+  main {
+    padding-top: 6px;
+    padding-bottom: 6px;
+    gap: 4px;
   }
   .sequencer-toolbar {
-    padding: 16px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+  .keyboard-caption small {
+    display: none;
+  }
+  #keyboard {
+    height: 40px;
+  }
+  .piano-key.black {
+    height: 28px;
+  }
+}
+@media (max-height: 600px) and (min-width: 641px) {
+  .topbar {
+    display: flex;
+    gap: 10px;
+  }
+  .brand {
+    font-size: 13px;
+  }
+  .project-title {
+    min-width: 64px;
+  }
+  .transport {
+    gap: 4px;
+  }
+  .transport button,
+  #save {
+    padding: 8px;
+    font-size: 12px;
+  }
+  .sequencer-toolbar {
+    flex-wrap: nowrap;
+  }
+  .sequencer-toolbar > div:first-child {
+    max-width: 130px;
   }
   .note-toolbar {
-    flex-wrap: wrap;
-  }
-  .roll-tools {
-    padding: 0 16px 12px;
-  }
-  .sequencer-footer {
-    flex-wrap: wrap;
-    gap: 10px;
-    font-size: 8px;
-  }
-  .statusbar {
-    padding: 12px 14px;
-    flex-wrap: wrap;
-    font-size: 9px;
+    width: auto;
+    flex: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -2,7 +2,7 @@
 export { KINDS, WAVES, CONTROLS, preset, validateRecipe, noteName } from './instruments.js';
 export {
   STEPS,
-  MAX_TRACKS,
+  MAX_PROJECT_BYTES,
   MAX_SECTIONS,
   MAX_ARRANGEMENT,
   validateProject,

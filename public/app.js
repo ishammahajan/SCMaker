@@ -33,6 +33,7 @@ const transport = createTransport({
   beginCapture: (capture, prepared) => noteRecording.begin(capture, prepared),
   prepareCapture: (rerecord) => noteRecording.prepare(rerecord),
   disableArrangement: (disabled) => arrangement.setDisabled(disabled),
+  paintArrangement: () => arrangement.paintPosition(),
 });
 const tracks = createTracks({
   state,

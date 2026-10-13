@@ -80,8 +80,8 @@ export function createSequencer({ state, notify, markDirty, renderTracks }) {
     if (
       x < Math.max(first.left, viewport.left) ||
       x >= Math.min(bottomRight.right, viewport.right) ||
-      y < first.top ||
-      y >= bottomRight.bottom
+      y < Math.max(first.top, viewport.top) ||
+      y >= Math.min(bottomRight.bottom, viewport.bottom)
     )
       return null;
     const start = Math.floor((x - first.left) / stepWidth);

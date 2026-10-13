@@ -4,12 +4,17 @@ import { MAX_SECTIONS, MAX_ARRANGEMENT } from '/shared/music.js';
 export function createArrangement({ state, action, markDirty, selectSection, stopPlayback }) {
   let busy = false;
   let songDisabled = false;
+  let entryIndex = 0;
   function setDisabled(disabled) {
     songDisabled = disabled;
     $('arrangement-editor').disabled = busy || songDisabled;
+    if (busy || songDisabled) {
+      $('section-menu').hidePopover();
+      $('entry-menu').hidePopover();
+    }
   }
   async function changeSection(change) {
-    if (busy) return;
+    if (busy || songDisabled) return;
     busy = true;
     setDisabled(songDisabled);
     try {
@@ -24,84 +29,80 @@ export function createArrangement({ state, action, markDirty, selectSection, sto
     const seconds = Math.round((bars * 4 * 60) / state.project.tempo);
     $('song-summary').textContent =
       `${bars} bars · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+    $('menu-summary').textContent = `Song: ${$('song-summary').textContent}`;
   }
-
-  function render() {
-    const project = state.project;
-    $('section-select').replaceChildren();
-    for (const section of project.sections) {
+  function sectionOptions(select) {
+    select.replaceChildren();
+    for (const section of state.project.sections) {
       const option = element('option', '', section.name);
       option.value = section.id;
-      $('section-select').append(option);
+      select.append(option);
     }
-    $('section-select').value = state.selectedSectionId;
-    $('section-name').value = project.sections.find(
-      (section) => section.id === state.selectedSectionId,
-    ).name;
+  }
+  function paintPosition() {
+    const song = state.engine.song;
+    const active = song?.phase === 'playing';
+    $('arrangement-list')
+      .querySelectorAll('.arrangement-entry')
+      .forEach((node, index) => {
+        const playing = active && index === song.position;
+        node.classList.toggle('playing', playing);
+        if (playing) node.setAttribute('aria-current', 'step');
+        else node.removeAttribute('aria-current');
+      });
+  }
+  function renderEntryOptions() {
+    const entry = state.project.arrangement[entryIndex];
+    if (!entry) return;
+    $('entry-heading').textContent = `Arrangement position ${entryIndex + 1}`;
+    sectionOptions($('entry-section'));
+    $('entry-section').value = entry.sectionId;
+    $('entry-section').setAttribute('aria-label', `Section at position ${entryIndex + 1}`);
+    $('entry-repeats').value = entry.repeats;
+    $('entry-repeats').setAttribute('aria-label', `Repeats at position ${entryIndex + 1}`);
+    $('entry-up').disabled = entryIndex === 0;
+    $('entry-down').disabled = entryIndex === state.project.arrangement.length - 1;
+    $('entry-remove').disabled = state.project.arrangement.length === 1;
+  }
+  function render() {
+    const project = state.project;
+    const selected = project.sections.find((section) => section.id === state.selectedSectionId);
+    sectionOptions($('section-select'));
+    $('section-select').value = selected.id;
+    $('section-name').value = selected.name;
+    $('editing-section').textContent = `Editing: ${selected.name}`;
     $('new-section').disabled = $('duplicate-section').disabled =
       project.sections.length >= MAX_SECTIONS;
     $('delete-section').disabled = project.sections.length === 1;
     $('append-section').disabled = project.arrangement.length >= MAX_ARRANGEMENT;
+    const scrollLeft = $('arrangement-list').scrollLeft;
     $('arrangement-list').replaceChildren();
     project.arrangement.forEach((entry, index) => {
-      const row = element('div', 'arrangement-row');
-      const select = element('select');
-      select.setAttribute('aria-label', `Section at position ${index + 1}`);
-      for (const section of project.sections) {
-        const option = element('option', '', section.name);
-        option.value = section.id;
-        select.append(option);
-      }
-      select.value = entry.sectionId;
-      select.onchange = () => {
-        entry.sectionId = select.value;
-        markDirty();
-      };
-      const repeats = element('input');
-      repeats.type = 'number';
-      repeats.min = 1;
-      repeats.max = 16;
-      repeats.value = entry.repeats;
-      repeats.setAttribute('aria-label', `Repeats at position ${index + 1}`);
-      repeats.onchange = () => {
-        entry.repeats = Math.max(1, Math.min(16, Math.floor(Number(repeats.value) || 1)));
-        repeats.value = entry.repeats;
-        markDirty();
-      };
-      row.append(
-        element('span', 'muted', `${index + 1}.`),
-        select,
-        element('span', '', '×'),
-        repeats,
+      const section = project.sections.find((section) => section.id === entry.sectionId);
+      const row = element('div', 'arrangement-entry');
+      const chip = element('button', 'arrangement-chip');
+      chip.append(element('span', '', section.name), element('small', '', `×${entry.repeats}`));
+      chip.setAttribute(
+        'aria-label',
+        `Edit ${section.name}, position ${index + 1}, ${entry.repeats} repeats`,
       );
-      for (const [label, text, delta] of [
-        ['Move up', '↑', -1],
-        ['Move down', '↓', 1],
-      ]) {
-        const button = element('button', 'subtle', text);
-        button.setAttribute('aria-label', `${label} position ${index + 1}`);
-        button.disabled = index + delta < 0 || index + delta >= project.arrangement.length;
-        button.onclick = () => {
-          [project.arrangement[index], project.arrangement[index + delta]] = [
-            project.arrangement[index + delta],
-            entry,
-          ];
-          markDirty();
-          render();
-        };
-        row.append(button);
-      }
-      const remove = element('button', 'subtle', '×');
-      remove.setAttribute('aria-label', `Remove position ${index + 1}`);
-      remove.disabled = project.arrangement.length === 1;
-      remove.onclick = () => {
-        project.arrangement.splice(index, 1);
-        markDirty();
-        render();
+      chip.setAttribute('aria-pressed', String(entry.sectionId === selected.id));
+      chip.title = `${section.name} · ${entry.repeats * 2} bars`;
+      chip.onclick = action(() => changeSection(() => selectSection(entry.sectionId)));
+      const options = element('button', 'entry-options', '⋯');
+      options.setAttribute('aria-label', `Options for position ${index + 1}`);
+      options.setAttribute('aria-haspopup', 'dialog');
+      options.onclick = () => {
+        entryIndex = index;
+        renderEntryOptions();
+        $('entry-menu').showPopover({ source: options });
       };
-      row.append(remove);
+      row.append(chip, options);
       $('arrangement-list').append(row);
     });
+    $('arrangement-list').scrollLeft = scrollLeft;
+    renderEntryOptions();
+    paintPosition();
     updateSummary();
   }
 
@@ -162,7 +163,43 @@ export function createArrangement({ state, action, markDirty, selectSection, sto
     state.project.arrangement.push({ sectionId: state.selectedSectionId, repeats: 1 });
     markDirty();
     render();
+    $('arrangement-list').scrollLeft = $('arrangement-list').scrollWidth;
+  };
+  $('entry-section').onchange = () => {
+    state.project.arrangement[entryIndex].sectionId = $('entry-section').value;
+    markDirty();
+    render();
+  };
+  $('entry-repeats').onchange = () => {
+    state.project.arrangement[entryIndex].repeats = Math.max(
+      1,
+      Math.min(16, Math.floor(Number($('entry-repeats').value) || 1)),
+    );
+    markDirty();
+    render();
+  };
+  for (const [id, delta] of [
+    ['entry-up', -1],
+    ['entry-down', 1],
+  ]) {
+    $(id).onclick = () => {
+      const order = state.project.arrangement;
+      const target = entryIndex + delta;
+      if (target < 0 || target >= order.length) return;
+      [order[entryIndex], order[target]] = [order[target], order[entryIndex]];
+      entryIndex = target;
+      markDirty();
+      render();
+    };
+  }
+  $('entry-remove').onclick = () => {
+    if (state.project.arrangement.length === 1) return;
+    state.project.arrangement.splice(entryIndex, 1);
+    $('entry-menu').hidePopover();
+    entryIndex = Math.min(entryIndex, state.project.arrangement.length - 1);
+    markDirty();
+    render();
   };
 
-  return { render, updateSummary, setDisabled };
+  return { render, updateSummary, setDisabled, paintPosition };
 }

@@ -1,11 +1,11 @@
 .topbar {
-  min-height: 80px;
   display: flex;
   align-items: center;
-  gap: 26px;
-  padding: 16px 24px;
+  gap: 18px;
+  padding: 10px 18px;
   border-bottom: 1px solid var(--border);
   background: #141c18;
+  min-width: 0;
 }
 .brand {
   display: flex;
@@ -25,13 +25,13 @@
   font-size: 31px;
   line-height: 26px;
   color: var(--accent);
-  margin-right: 10px;
+  margin-right: 8px;
 }
 .project-title {
   border-left: 1px solid var(--border);
-  padding-left: 24px;
+  padding-left: 18px;
   flex: 1;
-  min-width: 100px;
+  min-width: 80px;
 }
 .project-title input {
   border: 0;
@@ -45,12 +45,16 @@
   display: block;
   color: var(--muted);
   font-size: 10px;
-  margin-top: 5px;
+  margin-top: 3px;
 }
 .transport {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
+}
+.transport select {
+  font-size: 12px;
+  padding: 8px 5px;
 }
 .tempo-label {
   display: flex;
@@ -60,7 +64,6 @@
     9px ui-monospace,
     monospace;
   color: var(--muted);
-  margin-right: 12px;
   gap: 2px;
 }
 .tempo-label input {
@@ -68,21 +71,21 @@
   padding: 0;
   background: transparent;
   font:
-    16px ui-monospace,
+    15px ui-monospace,
     monospace;
-  width: 53px;
+  width: 48px;
   text-align: center;
 }
 .transport-play {
-  min-width: 83px;
+  min-width: 72px;
 }
 .transport-play span {
-  margin-right: 6px;
+  margin-right: 4px;
 }
 .record {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: transparent;
 }
 .record-dot {
@@ -90,6 +93,7 @@
   height: 8px;
   border-radius: 50%;
   background: #dd8585;
+  flex-shrink: 0;
 }
 .record.active {
   border-color: #c47777;
@@ -101,35 +105,193 @@
 .topbar > button kbd {
   display: block;
   font-size: 8px;
-  margin-top: 3px;
+  margin-top: 2px;
+}
+.song-strip {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  padding: 6px 18px;
+  border-bottom: 1px solid var(--border);
+  background: #141c18;
+}
+.song-strip fieldset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.section-library {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding-right: 8px;
+}
+#section-select {
+  width: 145px;
+  font-size: 12px;
+  padding: 7px;
+}
+#section-options,
+#append-section {
+  font-size: 17px;
+  padding: 4px 8px;
+}
+#arrangement-list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: 3px;
+}
+.arrangement-entry {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #1b251f;
+}
+.arrangement-entry:has([aria-pressed='true']) {
+  border-color: #8eaa64;
+  background: #283424;
+}
+.arrangement-entry.playing {
+  box-shadow: inset 0 -2px #e2b185;
+}
+.arrangement-entry.playing::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #e2b185;
+  margin-left: 8px;
+}
+.arrangement-chip,
+.entry-options {
+  border: 0;
+  background: transparent;
+  border-radius: 5px;
+  padding: 7px 8px;
+  font-size: 12px;
+}
+.arrangement-chip {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.arrangement-chip span {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.arrangement-chip small {
+  color: var(--muted);
+  font:
+    10px ui-monospace,
+    monospace;
+}
+.entry-options {
+  padding: 6px;
+  color: var(--muted);
+  border-left: 1px solid var(--border);
+  border-radius: 0 5px 5px 0;
+}
+#song-summary {
+  flex-shrink: 0;
+  font:
+    10px ui-monospace,
+    monospace;
+}
+.song-menu {
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid #596b4b;
+  border-radius: 10px;
+  padding: 18px;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  box-shadow: 0 10px 40px #0008;
+}
+.song-menu:popover-open {
+  display: grid;
+  gap: 10px;
+}
+.song-menu label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.song-menu p.muted {
+  margin: 0;
+  font-size: 12px;
+}
+.song-menu input,
+.song-menu select {
+  width: 100%;
+  min-width: 0;
+}
+.entry-actions {
+  display: flex;
+  gap: 8px;
+}
+.entry-actions button {
+  flex: 1;
+}
+#instruments-toggle,
+#close-instruments {
+  display: none;
 }
 .workspace {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
+  min-height: 0;
+  min-width: 0;
 }
 .sidebar {
-  padding: 27px 15px 20px;
+  padding: 14px 12px 10px;
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   background: #131b17;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+}
+.sidebar > :not(#tracks) {
+  flex-shrink: 0;
 }
 .section-label {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 19px;
-  padding: 0 8px;
-  font-size: 9px;
+  margin-bottom: 10px;
+  padding: 0 4px;
+  font-size: 10px;
 }
 .section-label span {
   letter-spacing: 0;
 }
+#tracks {
+  flex: 1;
+  min-height: 56px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
 .track-card {
-  margin-bottom: 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #18211c;
-  padding: 13px 12px;
+  margin-bottom: 5px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px;
 }
 .track-card.selected {
   border-color: var(--track-color);
@@ -142,7 +304,7 @@
 }
 .track-select {
   flex: 1;
-  padding: 0;
+  padding: 2px 0;
   background: transparent;
   border: none;
   text-align: left;
@@ -157,7 +319,9 @@
   font-size: 12px;
   font-weight: 550;
   display: block;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .track-select small {
   font:
@@ -165,9 +329,8 @@
     monospace;
   color: var(--muted);
   display: block;
-  margin-top: 5px;
+  margin-top: 4px;
   text-transform: uppercase;
-  letter-spacing: 1px;
 }
 .track-number {
   color: var(--track-color);
@@ -176,9 +339,9 @@
     monospace;
 }
 .mute {
-  padding: 4px 6px;
+  padding: 7px;
   font:
-    10px ui-monospace,
+    11px ui-monospace,
     monospace;
   background: transparent;
   color: var(--muted);
@@ -188,20 +351,30 @@
   color: #edc086;
   border-color: #765e3c;
 }
+#track-mix {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 10px;
+}
+.mix-heading {
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .track-control {
   display: grid;
   grid-template-columns: 31px 1fr 26px;
   align-items: center;
   gap: 8px;
-  margin-top: 15px;
+  margin-top: 10px;
   font:
-    9px ui-monospace,
+    10px ui-monospace,
     monospace;
   color: var(--muted);
 }
 .track-control input {
   width: 100%;
-  accent-color: var(--track-color);
 }
 .track-control output {
   text-align: right;
@@ -210,12 +383,15 @@
   border-style: dashed;
   background: transparent;
   color: var(--muted);
-  margin-top: 4px;
-  padding: 12px;
+  margin-top: 8px;
+  padding: 8px;
 }
 .sidebar-bottom {
-  margin-top: auto;
-  padding: 50px 8px 0;
+  padding: 12px 4px 0;
+}
+.sidebar-bottom .text-button {
+  padding: 5px 0;
+  font-size: 11px;
 }
 .status-light {
   display: inline-block;
@@ -224,6 +400,7 @@
   height: 6px;
   border-radius: 50%;
   margin-right: 8px;
+  flex-shrink: 0;
 }
 .status-light.waiting {
   background: #e1ba76;
@@ -231,49 +408,11 @@
 .status-light.error {
   background: #dd8585;
 }
-.song-panel {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 20px;
-}
-.song-panel fieldset {
-  border: 0;
-  padding: 0;
-  min-width: 0;
-}
-.section-tools,
-.song-actions,
-.arrangement-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.section-tools input,
-.section-tools select,
-.arrangement-row select {
-  min-width: 0;
-  max-width: 100%;
-  width: 160px;
-}
-.song-hint {
-  font-size: 11px;
-  line-height: 1.5;
-}
-.arrangement-row {
-  margin: 8px 0;
-}
-.arrangement-row input {
-  width: 55px;
-}
-.song-actions {
-  margin-top: 12px;
-}
 main {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 10px;
   min-width: 0;
-  padding: 28px 30px 20px;
-  max-width: 1600px;
-  width: 100%;
-  margin: 0 auto;
+  min-height: 0;
+  padding: 14px 18px 10px;
 }

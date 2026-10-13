@@ -26,6 +26,10 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  overflow: hidden;
 }
 button,
 input,

@@ -1,14 +1,14 @@
 .keyboard-panel {
   display: flex;
   align-items: center;
-  gap: 25px;
-  margin: 24px 0 30px;
+  gap: 12px;
+  min-width: 0;
 }
 .keyboard-caption {
   display: flex;
   flex-direction: column;
-  gap: 9px;
-  min-width: 165px;
+  gap: 6px;
+  min-width: 130px;
 }
 .keyboard-caption small {
   font-size: 9px;
@@ -26,10 +26,18 @@
 #keyboard {
   display: flex;
   flex: 1;
-  max-width: 680px;
+  min-width: 0;
   gap: 3px;
-  height: 66px;
+  height: 54px;
   position: relative;
+}
+.keyboard-panel:has(#keyboard[hidden]) .keyboard-caption {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+#keyboard-toggle {
+  font-size: 10px;
 }
 .piano-key {
   flex: 1;
@@ -50,7 +58,7 @@
 .piano-key.black {
   background: #29342d;
   border-color: #3b4a3e;
-  height: 43px;
+  height: 36px;
   color: #8f9e8e;
   margin-left: -12px;
   margin-right: -12px;

@@ -29,7 +29,7 @@ export function createKeyboard({ state, api, notify, action }) {
       button.onpointerup = (event) => endKey(`pointer_${event.pointerId}`);
       button.onpointercancel = (event) => endKey(`pointer_${event.pointerId}`);
       button.onlostpointercapture = (event) => endKey(`pointer_${event.pointerId}`);
-      // Enter/Space activates one short note for keyboard-only users.
+      // Enter activates one short note. Space is reserved for playback.
       button.onclick = action(async (event) => {
         if (event.detail === 0) await audition(midi);
       });
@@ -88,6 +88,18 @@ export function createKeyboard({ state, api, notify, action }) {
     for (const id of [...heldKeys.keys()]) endKey(id);
   }
 
+  $('keyboard-toggle').onclick = () => {
+    releaseAllKeys();
+    $('keyboard').hidden = !$('keyboard').hidden;
+    $('keyboard-toggle').setAttribute('aria-expanded', String(!$('keyboard').hidden));
+    $('keyboard-toggle').textContent = $('keyboard').hidden ? 'Show keys' : 'Hide keys';
+  };
+  const shortViewport = matchMedia('(max-height: 600px)');
+  const collapseForHeight = () => {
+    if (shortViewport.matches && !$('keyboard').hidden) $('keyboard-toggle').click();
+  };
+  collapseForHeight();
+  shortViewport.addEventListener('change', collapseForHeight);
   $('keyboard-octave').onchange = () => {
     releaseAllKeys();
     renderKeyboard();

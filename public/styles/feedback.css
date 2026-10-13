@@ -1,6 +1,7 @@
 .statusbar {
   border-top: 1px solid var(--border);
-  padding: 12px 24px;
+  padding: 8px 18px;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -8,7 +9,30 @@
     10px ui-monospace,
     monospace;
   color: var(--muted);
-  gap: 18px;
+  gap: 12px;
+}
+.statusbar > div:first-child {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+#engine-status,
+#song-position,
+#recording-result {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+#song-position {
+  margin-left: auto;
+}
+#recording-result {
+  flex-shrink: 0;
+  max-width: 45%;
+}
+#engine-log-toggle {
+  flex-shrink: 0;
 }
 .statusbar .inline-button {
   color: #7f977c;
@@ -36,6 +60,12 @@
   border-color: #9a665c;
 }
 .engine-log {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 40px;
+  z-index: 20;
+  border-top: 1px solid var(--border);
   margin: 0;
   padding: 20px;
   background: #0b100c;
@@ -43,7 +73,7 @@
   font:
     10px/1.7 ui-monospace,
     monospace;
-  max-height: 300px;
+  max-height: min(300px, 50dvh);
   overflow: auto;
 }
 dialog {
@@ -52,7 +82,10 @@ dialog {
   background: var(--panel);
   color: var(--text);
   padding: 28px;
-  min-width: 340px;
+  min-width: min(340px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
 }
 dialog::backdrop {
   background: #080e0bc0;

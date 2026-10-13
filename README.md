@@ -2,7 +2,7 @@
 
 A local, prompt-driven music workstation with a web interface and **real SuperCollider synthesis**. Describe an instrument, audition a revision, keep it, and write its notes in a piano roll.
 
-This is a small song-making prototype, not a complete DAW. It starts with a two-bar bass, kick, and pad sketch. You can build a song from independent sections and record its arrangement. Nothing plays until you press Play, Play song, Record song, or audition a sound.
+This is a small song-making prototype, not a complete DAW. It starts with a two-bar bass, kick, and pad sketch. You can build a song from independent sections and record its arrangement. Nothing plays until you press Play, record in Song mode, or audition a sound.
 
 ## Run
 
@@ -35,33 +35,35 @@ The engine uses its own dynamically allocated OSC ports. It does not take over a
 
 ## Make a sketch
 
-The main workspace is for composing: tracks and mix controls on the left, the piano roll in the center, and a playable keyboard below it. Sound design lives in a separate **Sound Workshop** dialog.
+The workstation fits the viewport without whole-page scrolling. Instruments scroll inside the left sidebar, the song strip scrolls horizontally, and the piano roll fills the remaining space with internal scrolling when needed. On phones, choose **Instruments** to open the sidebar as a drawer. The keyboard is a compact bottom dock; **Hide keys** frees more space for notes. Short windows start with the keys hidden. Sound design lives in a separate **Sound Workshop** dialog.
 
-1. Select an instrument on the left, or add one. There can be up to four per section. Adding an instrument opens its workshop.
+1. Select an instrument on the left, or add one. There is no fixed instrument-count limit. Adding an instrument opens its workshop.
 2. Click the piano roll to add notes. Select a note to set its length and velocity. Double-click it or use **Delete note** to remove it.
 3. Play the keyboard or hold computer keys `A W S E D F T G Y H U J K`.
-4. Adjust each instrument's level, mute, and reverb in the main workspace.
+4. Mute instruments in the list. Adjust the selected instrument's level and reverb below the list.
 5. Choose **Edit sound** to open the selected instrument's workshop. Type a description and choose **Build preview**, then compare **Current** and **Preview**. Choose **Keep this sound** to apply the revision. Fine-tuning sliders change the current sound directly.
 6. Choose **Back to music** or press Escape to close the workshop. Closing does not apply a preview or stop playback. An unapplied preview remains available when reopening the same instrument's workshop; switching instruments discards it.
 7. Save the project, or export a portable `.json` file. **Open project file** imports an exported project. **New empty project** removes the starter sketch from your working state.
-8. Press **Record**, then play your music. **Finish take** closes the stereo WAV and provides a download link. Recording also captures auditioned sounds.
+8. Choose **Section** in the global transport, press **Record**, then play your music. **Finish take** closes the stereo recording and provides a download link. Recording also captures auditioned sounds.
 
 ## Make and record a song
 
-1. Name the current section in **Song arrangement**, for example Intro.
-2. Choose **Duplicate** to copy its sounds and notes into an independent variation, or **New section** to copy its sounds with empty sequences. Select **Edit section** to switch between sections. Each section has its own instruments, sound history, mix controls, and notes. Editing one does not change another. Switching sections stops the current loop or note-recording pass.
-3. Choose **Append selected section** to add a section to the arrangement. Change each entry's section and repeat count, move entries with the arrows, or remove an entry with ×. Repeated entries reuse the same section; duplicate a section when you want a different final chorus. Deleting a section also removes its arrangement entries.
-4. Use the top **Play** button to loop the section you are editing. Use **Play song** to play the arrangement once, from its beginning. The position display shows the section, repetition, and bar. Song playback uses a snapshot; edits made during playback apply next time. Live keyboard playing and auditions are unavailable during song playback.
-5. Choose a recording format beside the top **Record** button, then choose **Record song**. Recording starts before the first note and finishes automatically after the arrangement and ending tail. The tail allows the longest instrument release plus three seconds for reverb. Download the finished stereo take from the footer. **Stop** finishes early and provides a partial take. The top **Record** button remains the separate manual recorder.
+1. Open **Section options** (⋯ beside the section chooser) in the song strip. Name the current section, for example Intro.
+2. In that menu, choose **Duplicate section** to copy its sounds and notes into an independent variation, or **New section** to copy its sounds with empty sequences. The section chooser includes unused sections. Clicking an arrangement chip also selects its section for editing. Each section has its own instruments, sound history, mix controls, and notes. Editing one does not change another. Switching sections stops the current loop or note-recording pass.
+3. Choose **＋** at the end of the strip to append the selected section. Open an entry's **⋯** menu to change its section or repeats, move it earlier or later, or remove it. Repeated entries reuse the same section; duplicate a section when you want a different final chorus. Deleting a section also removes its arrangement entries.
+4. Choose **Section** in the global transport to loop the section you are editing, or **Song** to play the arrangement once from its beginning. Press **Play**. Edited-section chips have a green outline; the playing entry has an amber indicator. The footer shows the section, repetition, and bar. Song playback uses a snapshot; edits made during playback apply next time. Section changes, live keyboard playing, and auditions are unavailable during song playback.
+5. Choose a recording format, select **Song**, and press **Record**. Recording starts before the first note and finishes automatically after the arrangement and ending tail. The tail allows the longest instrument release plus three seconds for reverb. Download the finished stereo take from the footer. **Stop** finishes early and provides a partial take. In **Section** mode, **Record** remains the independent manual recorder.
 6. **Save project** preserves the entire song. Export a `.json` file to keep multiple songs or transfer one to another computer.
 
 This pass keeps sections fixed at two bars in 4/4, with one project-wide tempo, at most 16 sections, and at most 32 arrangement entries. An entry can repeat 1–16 times. Use adjacent sections or repetitions for longer passages. There is no automation, audio-track recording, or timeline editor.
+
+Instrument count is not capped, but audio processing still depends on CPU, memory, and SuperCollider's bounded node and bus resources. Only sounding instruments need mixer channels; song channels are allocated as sections play and retained while their releases and reverb decay. Resource failures stop playback and are reported instead of silently omitting instruments. Project imports and API payloads have a 16 MiB data limit, separate from instrument count.
 
 Old version-one loop projects open as a single section with their exact sounds and notes intact. Saving or exporting from this UI writes the version-two song format, which older SCMaker builds cannot open. Opening alone does not rewrite the saved file.
 
 To record sequence notes, select an instrument and choose **Record notes** beside the piano roll controls. After four count-in clicks, play the computer keyboard for one two-bar loop. Releasing a key adds its note to the grid. Starts and ends snap to sixteenth steps, with a minimum length of one step and the current **Velocity** setting. Recording stops automatically at the loop boundary; **Stop**, Escape, or **Stop recording notes** finishes early. Existing notes stay intact. Same-pitch overlaps and notes beyond the 256-note track limit are skipped, with a summary when the take finishes. Save explicitly to keep the new notes. Press **R** to start or stop note recording. **Ctrl+R** removes only the notes added by the selected instrument's previous pass and starts a new count-in. Older and manually added notes are preserved, and a failed restart does not delete the previous pass. Pass history lasts for the current browser session and resets when opening or starting another project. These shortcuts are inactive while typing or using a dialog; Ctrl+R overrides browser reload only in the music workspace. The separate **Record** button still records stereo audio, not sequence notes.
 
-Keyboard shortcuts in the music workspace: Space toggles playback, Escape stops, and `1–4` select instruments. Ctrl+S or Cmd+S saves, including from the workshop. While a dialog is open, music and track shortcuts are inactive; Escape closes the dialog instead. In the piano roll, use arrow keys to navigate empty cells and Enter to add a note.
+Keyboard shortcuts in the music workspace: Space toggles playback, Escape stops, and `1–9` select the first nine instruments. Use the instrument list for the others. Clicking a button or slider does not disable these shortcuts or the computer piano keys. Space controls playback even when a button or dropdown is focused; use Enter to activate buttons or open dropdowns. Dropdown arrow keys and type-ahead remain native. Text and numeric fields and modal dialogs keep their normal keyboard behavior instead of triggering music commands. Escape closes an open popover or dialog before stopping playback. Other music shortcuts remain available in popovers unless you are editing a field or using a select menu; Space still controls playback on those selects. Ctrl+S or Cmd+S saves from anywhere in the app, including the workshop. In the piano roll, use arrow keys to navigate empty cells and Enter to add a note.
 
 In the workshop, the history menu restores earlier instrument versions without changing their sequences. The **SynthDef** panel displays the exact current definition and exports an editable `.scd` file. This version does not execute custom code entered or imported through the browser.
 

@@ -135,6 +135,27 @@ test('song recording starts before playback, ignores stale completion, and final
   }
 });
 
+test('song cleanup errors still clear playback state and finalize the recording', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'scmaker-song-cleanup-'));
+  const engine = new Engine(directory);
+  engine.command = async () => {};
+  try {
+    await engine.playSong(songFixture(), 'wav');
+    engine.command = async (code) => {
+      if (code.includes('~routine.stop')) throw new Error('SuperCollider cleanup failed.');
+    };
+    await assert.rejects(engine.stop(), /cleanup failed/);
+    assert.equal(engine.playing, false);
+    assert.equal(engine.step, -1);
+    assert.equal(engine.recording, null);
+    assert.equal(engine.song.phase, 'finished');
+    assert.match(engine.song.error, /cleanup failed/);
+    assert.match(engine.song.url, /recordings\/take-.*\.wav$/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('failed song playback closes its recording and conversion failure is visible in status', async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'scmaker-song-failure-'));
   const engine = new Engine(directory);

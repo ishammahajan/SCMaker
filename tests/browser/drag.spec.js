@@ -106,6 +106,27 @@ test('resizing reaches one step and the loop end, with a separate delete cross',
   await expect(page.locator('.roll-note')).toHaveCount(1);
 });
 
+test('the note delete cross has a large target and stays reachable from an unselected note', async ({
+  page,
+}) => {
+  await openFixture(page);
+  await expect(movingNote(page)).not.toHaveClass(/selected/);
+  await movingNote(page).hover();
+  const note = await movingNote(page).boundingBox();
+  const remove = movingNote(page).locator('.note-remove');
+  const target = await remove.boundingBox();
+  expect(target.width).toBeGreaterThanOrEqual(24);
+  expect(target.height).toBeGreaterThanOrEqual(24);
+  const x = target.x + target.width / 2;
+  await page.mouse.move(x, note.y + note.height / 2);
+  await page.mouse.move(x, target.y + target.height / 2, { steps: 12 });
+  await expect(remove).toHaveCSS('pointer-events', 'auto');
+  // Click away from the glyph to exercise the enlarged hit area.
+  await page.mouse.click(target.x + 4, target.y + 4);
+  await expect(movingNote(page)).toHaveCount(0);
+  await expect(page.locator('.roll-note')).toHaveCount(1);
+});
+
 test('overlapping resize is rejected and cancelled resize leaves the saved note unchanged', async ({
   page,
 }) => {
@@ -205,6 +226,23 @@ test('overlapping and out-of-grid drops show blocked feedback and do not move th
   await page.mouse.up();
   await expectPosition(page, 2, 48);
   expect(await exportedNote(page)).toMatchObject({ start: 2, midi: 48, length: 4 });
+});
+
+test('a vertically clipped piano roll rejects drops below its visible viewport', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await openFixture(page);
+  const viewport = await page.locator('.roll-scroll').boundingBox();
+  const grid = await page.locator('#piano-roll').boundingBox();
+  expect(grid.y + grid.height).toBeGreaterThan(viewport.y + viewport.height);
+  await beginDrag(page);
+  const target = await cellPoint(page, 8, 48);
+  await page.mouse.move(target.x, viewport.y + viewport.height + 10);
+  await expect(movingNote(page)).toHaveClass(/drag-blocked/);
+  await page.mouse.up();
+  await expectPosition(page, 2, 48);
+  expect(await exportedNote(page)).toMatchObject({ start: 2, midi: 48 });
 });
 
 test('pointer cancellation and capture loss clear the preview without committing', async ({

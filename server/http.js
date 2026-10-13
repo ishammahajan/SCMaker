@@ -6,12 +6,13 @@ export function sendJson(response, status, value) {
   response.end(JSON.stringify(value));
 }
 
-export async function readJson(request) {
+export async function readJson(request, maxBytes = 1024 * 1024) {
   let size = 0;
   const chunks = [];
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > 1024 * 1024) throw new Error('Request exceeds 1 MB.');
+    if (size > maxBytes)
+      throw new Error(`Request exceeds the ${maxBytes / (1024 * 1024)} MiB data limit.`);
     chunks.push(chunk);
   }
   try {

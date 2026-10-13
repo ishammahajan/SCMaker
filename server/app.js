@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { mkdir } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { Engine } from './engine.js';
+import { MAX_PROJECT_BYTES } from '../shared/music.js';
 import { readJson, sendJson, sendError } from './http.js';
 import { setSecurityHeaders, localOrigin, authorizeMutation } from './security.js';
 import { serveStatic } from './static-assets.js';
@@ -34,7 +35,20 @@ export async function createApp({
       const { pathname } = new URL(request.url, origin);
       if (request.method === 'POST') {
         if (!authorizeMutation(request, response, token)) return;
-        await routes.post(pathname, await readJson(request), response);
+        const projectRoutes = [
+          '/api/project',
+          '/api/sync',
+          '/api/play',
+          '/api/song/play',
+          '/api/song/record',
+          '/api/notes/start',
+          '/api/note',
+        ];
+        await routes.post(
+          pathname,
+          await readJson(request, projectRoutes.includes(pathname) ? MAX_PROJECT_BYTES : undefined),
+          response,
+        );
         return;
       }
       if (request.method !== 'GET') {

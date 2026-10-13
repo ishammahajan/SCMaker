@@ -1,5 +1,5 @@
 import { $, download, filename } from '../ui/dom.js';
-import { defaultProject, makeSong, makeTrack } from '/shared/music.js';
+import { defaultProject, makeSong, makeTrack, MAX_PROJECT_BYTES } from '/shared/music.js';
 
 export function createProjectFiles({
   state,
@@ -98,7 +98,7 @@ export function createProjectFiles({
     const file = $('project-file').files[0];
     try {
       if (!file) return;
-      if (file.size > 1024 * 1024) throw new Error('Project exceeds 1 MB.');
+      if (file.size > MAX_PROJECT_BYTES) throw new Error('Project exceeds the 16 MiB data limit.');
       await loadProject(JSON.parse(await file.text()));
       notify('Project opened. Save to keep it on this computer.');
     } finally {

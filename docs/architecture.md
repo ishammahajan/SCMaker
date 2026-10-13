@@ -43,12 +43,29 @@ Each feature factory binds its own controls and returns a small controller API.
 `app.js` passes the callbacks needed for coordination. There is no global event
 bus, service registry, or controller import cycle.
 
+`shortcuts.js` routes reserved workstation keys in the capture phase before native
+button activation. Save works across contexts. Modal dialogs, editable fields,
+and native selects own their input, except that Space on workstation selects
+controls playback. Sliders and focused buttons do not disable music shortcuts. Escape dismisses an open popover before stopping audio. Other
+popover shortcuts follow the focused control's context. Enter activates buttons,
+and unclaimed keys such as piano-roll arrows stay with their feature handlers.
+
 Only the project, selected section/track IDs, and engine status are shared in `state.js`.
 `currentProject` exposes the selected section as a legacy-shaped loop snapshot, so
 existing sound and sequence editors work on that section's tracks.
 Features keep transient state in their own closures: the sequencer owns its
 selected note and octave view; the sound editor owns the unapplied draft; the
-keyboard owns held voices; project files owns dirty-state and save revisions.
+keyboard owns held voices and dock visibility; project files owns dirty-state and save revisions.
+The arranger owns its entry-options selection and section-change busy guard. The
+transport's Section/Song chooser selects loop or arranged playback, and manual or
+automatic audio recording, without duplicating transport buttons.
+
+The body is a viewport-height grid: transport, compact song strip, workspace, and
+status. The sidebar instrument list, horizontal arrangement, piano roll, and narrow
+note toolbar contain their own overflow. Only the selected instrument shows mix
+sliders. On narrow screens the same sidebar becomes a native popover drawer.
+Section and entry options are native popovers; sound design stays in its modal dialog.
+Do not restore vertical stacking or hide overflow without keeping controls reachable.
 
 An edit updates the working project and calls `markDirty`. That marks the project
 unsaved and schedules an audio sync through the transport controller. Disk saves
@@ -89,7 +106,9 @@ Version-two projects store `{ version, name, tempo, sections, arrangement }`.
 Each section stores `{ id, name, tracks }`, with independent two-bar sequences,
 recipes, history, and mix controls. Arrangement entries store `{ sectionId, repeats }`.
 IDs are unique within a section; copied sections can retain track and note IDs.
-Validation bounds section/entry counts and repeats and rejects dangling references.
+Validation bounds section/entry counts, repeats, notes, and history and rejects dangling references.
+There is no track-count ceiling. Project imports and project-bearing API requests
+are bounded to 16 MiB; other request bodies retain their 1 MiB limit.
 Opening a version-one loop converts it to one section in memory; disk saves are
 still explicit and atomic.
 
@@ -128,12 +147,26 @@ playhead. Keep audio scheduling and live-note safety release in SuperCollider.
 
 `/api/song/play` and `/api/song/record` accept validated version-two projects.
 Section loop, sync, and live-note endpoints accept validated version-one section
-snapshots. Arranged playback compiles trusted definitions under distinct internal
-names per section and allocates separate section buses/strips. This preserves
-outgoing sustained voices and reverb when the next section uses different sounds
-or mix settings. Existing workspace strips are silenced during song playback to
-keep old loop/audition tails out of an arranged take. Song resources are freed at
-the end or on Stop.
+snapshots. Workspace channels are allocated dynamically by instrument ID, separate
+from the preview/live-keyboard channel. Updates stage the complete next sequence
+before swapping it, so increasing track count does not reroute existing voices.
+Idle sync reclaims unused channels before allocating replacements. Live sync retains
+retiring channels until a later idle sync to protect sustained voices.
+
+Arranged playback compiles trusted definitions under distinct internal names for
+sounding instruments in referenced sections. Each section pass allocates channels
+only for its sounding instruments, then retires them after that section's release,
+reverb, and latency allowance. Outgoing voices keep their own buses and mix settings
+across section changes and repeats. The engine does not reserve all section mixers
+up front. Workspace channels are freed and the preview strip silenced at song start
+to exclude old loop/audition tails. Song resources are freed at the end or on Stop.
+
+Trusted command fragments are batched within 48 kB, with a 60 kB OSC packet guard,
+so larger projects do not overflow the UDP bridge or require a round trip per silent
+instrument. No track or note is truncated to make a packet fit. SuperCollider's
+node, memory, and bus bounds remain intact. Allocation exceptions and server `/fail`
+messages reach engine status as `audioError`; active playback stops and song-owned
+recordings finalize on failure rather than silently lose voices.
 
 A single SuperCollider routine follows the frozen arrangement and repeats, then
 waits for the longest release plus three seconds of reverb and bundle latency.
@@ -175,6 +208,9 @@ Use the commands in the [README](../README.md#checks). The checks cover:
 - Legacy song conversion, independent section edits, arrangement validation,
   repeats/reordering, full-song save/reopen, and automatic recording finalization.
 - Real arranged audio in every section/repetition and an audible ending release.
+- Many-instrument validation and saves above 1 MiB, bounded OSC batching, and unused-section compilation.
+- A 37-instrument, 32-entry workstation at laptop, phone, and short landscape sizes without document overflow or clipped transport controls.
+- Fifth/sixth instrument audio in isolation, retired song-resource cleanup, actual bus exhaustion, failed-take finalization, and recovery.
 
 Audio checks use isolated data and produce sound. UI acceptance remains a human check;
 passing tests alone does not establish that every future workflow is covered.

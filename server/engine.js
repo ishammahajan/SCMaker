@@ -43,6 +43,7 @@ export class Engine {
     this.token = randomBytes(24).toString('hex');
     this.state = 'starting';
     this.error = null;
+    this.audioError = null;
     this.logs = [];
     this.pending = new Map();
     this.sequence = 0;
@@ -100,6 +101,15 @@ export class Engine {
           if (address === '/scmaker/ready') {
             this.state = 'ready';
             this.readyResolve();
+          }
+          if (address === '/scmaker/audioError') {
+            this.audioError = String(args[1]);
+            this.log(this.audioError);
+            this.run(async () => {
+              if (!this.playing && !this.songActive) return;
+              if (this.songActive) this.song.error = this.audioError;
+              await this.stop();
+            }).catch((error) => this.log(`Audio cleanup failed: ${error.message}`));
           }
           if (address === '/scmaker/step') {
             this.step = args[1];
@@ -217,24 +227,24 @@ export class Engine {
     if (this.state !== 'ready')
       return Promise.reject(new Error(this.error || 'The audio engine is still starting.'));
     const id = ++this.sequence;
+    const packet = encodeOSC('/scmaker/eval', [this.token, id, code, waitForServer ? 1 : 0]);
+    if (packet.length > 60000)
+      return Promise.reject(
+        new Error('SuperCollider command exceeds the safe bridge packet size.'),
+      );
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error('SuperCollider command timed out.'));
       }, 8000);
       this.pending.set(id, { resolve, reject, timer });
-      this.socket.send(
-        encodeOSC('/scmaker/eval', [this.token, id, code, waitForServer ? 1 : 0]),
-        this.langPort,
-        '127.0.0.1',
-        (error) => {
-          if (error) {
-            clearTimeout(timer);
-            this.pending.delete(id);
-            reject(error);
-          }
-        },
-      );
+      this.socket.send(packet, this.langPort, '127.0.0.1', (error) => {
+        if (error) {
+          clearTimeout(timer);
+          this.pending.delete(id);
+          reject(error);
+        }
+      });
     });
   }
   run(action) {
@@ -242,11 +252,28 @@ export class Engine {
     this.queue = result.catch(() => {});
     return result;
   }
-  async compile(track) {
-    if (this.compiled.get(track.id) !== track.code) {
-      await this.command(track.code);
-      this.compiled.set(track.id, track.code);
+  async commands(codes) {
+    let batch = '';
+    let bytes = 0;
+    for (const code of codes) {
+      const size = Buffer.byteLength(code) + 1;
+      if (batch && bytes + size > 48000) {
+        await this.command(batch);
+        batch = '';
+        bytes = 0;
+      }
+      batch += `${code}\n`;
+      bytes += size;
     }
+    if (batch) await this.command(batch);
+  }
+  async compileTracks(tracks) {
+    const changed = tracks.filter((track) => this.compiled.get(track.id) !== track.code);
+    await this.commands(changed.map((track) => track.code));
+    for (const track of changed) this.compiled.set(track.id, track.code);
+  }
+  async compile(track) {
+    await this.compileTracks([track]);
   }
   get songActive() {
     return ['playing', 'tail', 'finishing'].includes(this.song?.phase);
@@ -254,27 +281,36 @@ export class Engine {
   async sync(project) {
     // Song playback uses a frozen arrangement. Workspace edits apply next time.
     if (this.songActive) return;
-    for (const track of project.tracks) await this.compile(track);
-    await this.command(projectCode(project));
+    await this.compileTracks(project.tracks.filter((track) => !track.muted && track.notes.length));
+    await this.commands(projectCode(project, this.playing));
   }
   async play(project) {
     await this.sync(project);
     if (this.playing) return;
+    this.audioError = null;
     await this.command(playbackCode(project));
     this.playing = true;
   }
   async playSong(project, format) {
     if (this.recording) throw new Error('Finish the current recording before starting a song.');
     await this.stop();
+    this.audioError = null;
     const sections = songInstruments(project);
+    const usedSections = new Set(
+      project.arrangement.map((entry) =>
+        project.sections.findIndex((section) => section.id === entry.sectionId),
+      ),
+    );
     try {
-      for (const tracks of sections) for (const track of tracks) await this.compile(track);
-      await this.command(songSetupCode(project));
-      let busOffset = 0;
-      for (const [index, tracks] of sections.entries()) {
-        await this.command(songSectionCode(tracks, index, busOffset));
-        busOffset += tracks.length;
-      }
+      await this.compileTracks(
+        [...usedSections].flatMap((index) =>
+          sections[index].filter((track) => !track.muted && track.notes.length),
+        ),
+      );
+      await this.commands([
+        songSetupCode(project),
+        ...[...usedSections].flatMap((index) => songSectionCode(sections[index], index)),
+      ]);
       if (format !== undefined) await this.startRecording(format);
       this.song = {
         id: ++this.songSequence,
@@ -332,13 +368,24 @@ export class Engine {
     this.playing = true;
   }
   async stop() {
-    await this.command(
-      'if(~routine.notNil, { ~routine.stop; }); if(~captureActive, { ~finishCapture.(); }); ~clock.clear; ~live.clear; 0.12.wait; ~voices.freeAll; ~clearSong.();',
-    );
+    let stopError;
+    try {
+      await this.command(
+        'if(~routine.notNil, { ~routine.stop; }); if(~captureActive, { ~finishCapture.(); }); ~clock.clear; ~live.clear; 0.12.wait; ~voices.freeAll; ~clearSong.();',
+      );
+    } catch (error) {
+      stopError = error;
+    }
+    // A cleanup failure must not leave an apparently running song, repeatedly
+    // enqueue Stop, or prevent its recording from being finalized.
     this.playing = false;
     this.step = -1;
     if (this.noteCapture) this.noteCapture.phase = 'finished';
-    if (this.songActive) await this.finishSong(this.song.id);
+    if (this.songActive) {
+      if (stopError) this.song.error ||= stopError.message;
+      await this.finishSong(this.song.id);
+    }
+    if (stopError) throw stopError;
   }
   async audition(recipe, midi = 48, reverb = 0.05) {
     if (this.songActive) throw new Error('Stop song playback before auditioning sounds.');
@@ -415,6 +462,7 @@ export class Engine {
     return {
       state: this.state,
       error: this.error,
+      audioError: this.audioError,
       playing: this.playing,
       recording: this.recording,
       noteCapture: this.noteCapture,

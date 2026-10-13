@@ -56,6 +56,36 @@ try {
       `${track.name} must be audible and unclipped.\n${engine.logs.join('\n')}`,
     );
   }
+  // Fifth and sixth loop instruments must each produce signal alone. Preview
+  // audio is silenced so it cannot conceal a broken workspace channel.
+  const many = defaultProject();
+  for (let index = 3; index < 6; index++) {
+    const extra = makeTrack('bass', `t_extra_${index}`, `Extra ${index + 1}`);
+    extra.notes = [{ id: 'extra', start: 0, midi: 48 + index, length: 8, velocity: 0.7 }];
+    many.tracks.push(extra);
+  }
+  many.tempo = 240;
+  await engine.run(() => engine.command('~preview[1].set(\\level, 0);'));
+  for (const index of [4, 5]) {
+    many.tracks.forEach((track, i) => {
+      track.muted = i !== index;
+    });
+    const take = await engine.run(() => engine.startRecording('wav'));
+    await engine.run(() => engine.play(many));
+    await new Promise((resolve) => setTimeout(resolve, 850));
+    await engine.run(() => engine.stop());
+    await engine.run(() => engine.stopRecording());
+    const bytes = await readFile(path.join(directory, 'recordings', take));
+    let peak = 0;
+    for (let offset = 12; offset + 8 <= bytes.length; ) {
+      const size = bytes.readUInt32LE(offset + 4);
+      if (bytes.toString('ascii', offset, offset + 4) === 'data')
+        for (let i = offset + 8; i + 1 < offset + 8 + size; i += 2)
+          peak = Math.max(peak, Math.abs(bytes.readInt16LE(i) / 32768));
+      offset += 8 + size + (size % 2);
+    }
+    assert.ok(peak > 0.01 && peak < 0.99, `Instrument ${index + 1} must be audible alone.`);
+  }
   const project = defaultProject();
   project.tracks[0].recipe = customTracks[0].recipe;
   project.tracks[0].code = synthDef(project.tracks[0].id, project.tracks[0].recipe);
@@ -190,6 +220,12 @@ try {
   outro.tracks[0].recipe.release = 1.2;
   outro.tracks[0].code = synthDef('t_bass', outro.tracks[0].recipe);
   outro.tracks[0].notes = [{ id: 'outro', start: 0, midi: 55, length: 32, velocity: 0.8 }];
+  // The only audible outro voice is beyond the former four-track limit.
+  outro.tracks.unshift(
+    ...Array.from({ length: 5 }, (_, index) =>
+      makeTrack('bass', `t_silent_${index}`, `Silent ${index}`),
+    ),
+  );
   song.sections.push(chorus, outro);
   song.arrangement = [
     { sectionId: first.id, repeats: 1 },
@@ -243,6 +279,37 @@ try {
     'The ending must decay before recording closes.',
   );
   assert.doesNotMatch(engine.logs.join('\n'), /ERROR:|FAILURE IN SERVER/);
+  await engine.run(() =>
+    engine.command('if(~songChannels.notEmpty, { Error("Song channels leaked.").throw; });'),
+  );
+  // Exhaust the actual bus allocator. A failed song must stop, close its take,
+  // and report the error rather than keep playing with missing instruments.
+  await engine.run(() =>
+    engine.command(`
+~blockedBus = s.audioBusAllocator.alloc(s.options.numAudioBusChannels - s.options.firstPrivateBus - 4);
+if(~blockedBus.isNil, { Error("Could not reserve test buses.").throw; });
+`),
+  );
+  await engine.run(() => engine.playSong(makeSong(defaultProject()), 'wav'));
+  await waitFor(() => engine.song.phase === 'finished');
+  assert.match(engine.audioError, /audio buses exhausted/);
+  assert.match(engine.song.error, /audio buses exhausted/);
+  assert.equal(engine.recording, null);
+  assert.equal(engine.playing, false);
+  assert.ok((await readFile(path.join(directory, 'recordings', engine.song.name))).length >= 44);
+  await engine.run(() => engine.command('s.audioBusAllocator.free(~blockedBus);'));
+  await engine.run(() => engine.play(defaultProject()));
+  assert.equal(engine.audioError, null, 'Playback recovers once resources are available.');
+  await engine.run(() => engine.stop());
+  // Server-side /fail replies must reject the command, not just appear in a log.
+  await assert.rejects(
+    engine.run(() => engine.command('Synth(\\scmakerMissingDefinition);')),
+    /SuperCollider audio resource failure/,
+  );
+  assert.match(engine.audioError, /not found/);
+  console.log(
+    'PASS: fifth and sixth instruments audible alone; dynamic song routing freed; real bus exhaustion and server failures reported; failed recording finalized; playback recovered.',
+  );
   console.log(
     `PASS: arranged SuperCollider song, independent section sounds, ordered repeats, automatic stereo recording, ${duration.toFixed(2)}s including an audible ending tail.`,
   );

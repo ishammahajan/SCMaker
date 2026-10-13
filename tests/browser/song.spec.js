@@ -24,17 +24,18 @@ test('sections remain editable and saveable while audio is unavailable', async (
   await page.goto('/');
   await expect(page.locator('#engine-status')).toHaveText('Audio unavailable');
   await page.locator('#new-project').click();
+  await page.locator('#section-options').click();
   await page.locator('#new-section').focus();
-  await page.keyboard.press('Space');
+  await page.keyboard.press('Enter');
   await expect(page.locator('#section-select option')).toHaveCount(2);
-  await page.locator('#duplicate-section').click();
+  await sectionAction(page, 'duplicate-section');
   await expect(page.locator('#section-select option')).toHaveCount(3);
   page.once('dialog', (dialog) => dialog.accept());
-  await page.locator('#delete-section').click();
+  await sectionAction(page, 'delete-section');
   await expect(page.locator('#section-select option')).toHaveCount(2);
   await page.locator('#save').click();
   await expect(page.locator('#saved-state')).toHaveText('Saved on this computer');
-  await expect(page.locator('#record-song')).toBeDisabled();
+  await expect(page.locator('#record')).toBeDisabled();
   expect(errors).toEqual([]);
 });
 
@@ -44,9 +45,16 @@ async function exportedProject(page) {
   return JSON.parse(await readFile(await (await pending).path(), 'utf8'));
 }
 
+async function sectionAction(page, id) {
+  await page.locator('#section-options').click();
+  await page.locator(`#${id}`).click();
+}
+
 async function nameSection(page, name) {
+  await page.locator('#section-options').click();
   await page.locator('#section-name').fill(name);
   await page.locator('#section-name').press('Tab');
+  await page.keyboard.press('Escape');
 }
 
 test('make sections, arrange repeats, reopen, and record a complete song without intervention', async ({
@@ -63,7 +71,7 @@ test('make sections, arrange repeats, reopen, and record a complete song without
   await page.locator('#tempo').press('Tab');
   await nameSection(page, 'Intro');
   await page.locator('.cell[data-start="0"][data-midi="48"]').click();
-  await page.locator('#duplicate-section').click();
+  await sectionAction(page, 'duplicate-section');
   await nameSection(page, 'Chorus');
   await expect(page.locator('.roll-note')).toHaveCount(1);
   await page.locator('.roll-note').press('ArrowUp');
@@ -71,9 +79,11 @@ test('make sections, arrange repeats, reopen, and record a complete song without
   await page.locator('#wave').selectOption('sine');
   await page.locator('#close-workshop').click();
   await page.locator('#append-section').click();
+  await page.getByLabel('Options for position 2', { exact: true }).click();
   await page.getByLabel('Repeats at position 2', { exact: true }).fill('2');
   await page.getByLabel('Repeats at position 2', { exact: true }).press('Tab');
-  await page.locator('#new-section').click();
+  await page.keyboard.press('Escape');
+  await sectionAction(page, 'new-section');
   await nameSection(page, 'Outro');
   await expect(page.locator('.roll-note')).toHaveCount(0);
   await page.locator('#edit-sound').click();
@@ -86,8 +96,10 @@ test('make sections, arrange repeats, reopen, and record a complete song without
   await page.locator('#note-length').fill('4');
   await page.locator('#note-length').press('Tab');
   await page.locator('#append-section').click();
-  await page.getByLabel('Move up position 3', { exact: true }).click();
-  await page.getByLabel('Move down position 2', { exact: true }).click();
+  await page.getByLabel('Options for position 3', { exact: true }).click();
+  await page.locator('#entry-up').click();
+  await page.locator('#entry-down').click();
+  await page.keyboard.press('Escape');
   await expect(page.locator('#song-summary')).toHaveText('8 bars · 0:08');
   const project = await exportedProject(page);
   expect(project.version).toBe(2);
@@ -102,7 +114,8 @@ test('make sections, arrange repeats, reopen, and record a complete song without
   await page.reload();
   await expect(page.locator('#section-select option')).toHaveCount(3);
   expect(await exportedProject(page)).toEqual(project);
-  await page.locator('#play-song').focus();
+  await page.locator('#playback-scope').selectOption('song');
+  await page.locator('#play').focus();
   await page.keyboard.press('Space');
   await expect(page.locator('#song-position')).toContainText('Intro');
   await expect(page.locator('#section-select')).toBeDisabled();
@@ -110,12 +123,12 @@ test('make sections, arrange repeats, reopen, and record a complete song without
   await expect(page.locator('#playhead')).toBeHidden();
   await expect(page.locator('#song-position')).toContainText('Outro', { timeout: 6000 });
   await expect(page.locator('#song-position')).toHaveText('Song stopped', { timeout: 10000 });
-  await expect(page.locator('#play')).toHaveAttribute('aria-label', 'Play loop');
+  await expect(page.locator('#play')).toHaveAttribute('aria-label', 'Play song');
   await page.locator('#recording-format').selectOption('wav');
-  await page.locator('#record-song').click();
+  await page.locator('#record').click();
   await expect(page.locator('#recording-result')).toHaveText('Recording arranged song…');
   await expect(page.locator('#recording-result a')).toContainText('WAV', { timeout: 20000 });
-  await expect(page.locator('#record-song')).toBeEnabled();
+  await expect(page.locator('#record')).toBeEnabled();
   const downloadPending = page.waitForEvent('download');
   await page.locator('#recording-result a').click();
   const download = await downloadPending;
@@ -126,18 +139,18 @@ test('make sections, arrange repeats, reopen, and record a complete song without
   // Deletion removes dangling arrangement references, and cannot delete the last section.
   await page.locator('#section-select').selectOption(project.sections[1].id);
   page.once('dialog', (dialog) => dialog.accept());
-  await page.locator('#delete-section').click();
+  await sectionAction(page, 'delete-section');
   await expect(page.locator('#section-select option')).toHaveCount(2);
   const deleted = await exportedProject(page);
   expect(deleted.arrangement.map((entry) => entry.sectionId)).toEqual([
     project.sections[0].id,
     project.sections[2].id,
   ]);
-  await page.locator('#record-song').click();
+  await page.locator('#record').click();
   await expect(page.locator('#recording-result')).toHaveText('Recording arranged song…');
   await page.locator('#stop').click();
   await expect(page.locator('#recording-result a')).toContainText('WAV');
-  await expect(page.locator('#record-song')).toBeEnabled();
+  await expect(page.locator('#record')).toBeEnabled();
   expect(errors).toEqual([]);
   const status = await (await page.request.get('/api/status')).json();
   expect(status.recording).toBeNull();

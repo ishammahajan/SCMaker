@@ -17,14 +17,28 @@ s.options.maxNodes = 4096;
 s.options.zeroConf = false;
 s.latency = 0.08;
 ~tracks = [];
-~songBuses = [];
-~songStrips = [];
-~clearSong = {
-    ~songStrips.do({ |strip| strip.free; });
-    ~songBuses.do({ |bus| bus.free; });
-    ~songStrips = [];
-    ~songBuses = [];
+~channels = IdentityDictionary.new;
+~songChannels = List.new;
+~newChannel = { |level, reverb|
+    var bus = Bus.audio(s, 2);
+    if(bus.isNil, { Error("SuperCollider audio buses exhausted. Reduce the active arrangement or stop unused sounds.").throw; });
+    [bus, Synth(\\scmakerStrip, [\\inbus, bus, \\out, ~mixBus, \\level, level, \\reverb, reverb], ~fxGroup)]
 };
+~freeChannel = { |channel| channel[1].free; channel[0].free; };
+~releaseSongChannels = { |channels|
+    channels.do({ |channel|
+        if(~songChannels.includes(channel), {
+            ~songChannels.remove(channel);
+            ~freeChannel.(channel);
+        });
+    });
+};
+~clearSong = { ~releaseSongChannels.(~songChannels.copy); };
+~serverFailure = nil;
+OSCdef(\\scmakerFailure, { |msg|
+    ~serverFailure = "SuperCollider audio resource failure: " ++ msg[1..].join(" ");
+    ~reply.sendMsg("/scmaker/audioError", ~secret, ~serverFailure);
+}, "/fail", s.addr);
 ~live = IdentityDictionary.new;
 ~clock = TempoClock.new(1.8, 0, nil, 4096);
 ~routine = nil;
@@ -47,12 +61,17 @@ OSCdef(\\scmakerCommand, { |msg, time, addr|
     if((addr.ip == "127.0.0.1") and: { msg[1].asString == ~secret }, {
         Routine({
             try {
+                ~serverFailure = nil;
                 msg[3].asString.interpret;
                 // Live notes need acknowledgement of evaluation, not another server round trip.
-                if(msg[4] != 0, { s.sync; });
+                if(msg[4] != 0, {
+                    s.sync;
+                    if(~serverFailure.notNil, { Error(~serverFailure).throw; });
+                });
                 addr.sendMsg("/scmaker/reply", ~secret, msg[2], 1, "ok");
             } { |error|
-                addr.sendMsg("/scmaker/reply", ~secret, msg[2], 0, error.asString);
+                addr.sendMsg("/scmaker/reply", ~secret, msg[2], 0, error.errorString);
+                ~reply.sendMsg("/scmaker/audioError", ~secret, error.errorString);
                 error.reportError;
             };
         }).play(SystemClock);
@@ -72,11 +91,10 @@ s.waitForBoot({
             Out.ar(0, Limiter.ar(In.ar(inbus, 2), 0.85, 0.01));
         }).add;
         s.sync;
-        ~buses = Array.fill(5, { Bus.audio(s, 2) });
         ~mixBus = Bus.audio(s, 2);
         ~voices = Group.head(s);
         ~fxGroup = Group.after(~voices);
-        ~strips = Array.fill(5, { |i| Synth(\\scmakerStrip, [\\inbus, ~buses[i], \\out, ~mixBus], ~fxGroup) });
+        ~preview = ~newChannel.(0.7, 0.05);
         ~master = Synth.tail(~fxGroup, \\scmakerMaster, [\\inbus, ~mixBus]);
         s.sync;
         ~reply.sendMsg("/scmaker/ready", ~secret);
@@ -86,17 +104,43 @@ s.waitForBoot({
 `;
 }
 
-export function projectCode(project) {
-  const tracks = project.tracks.map(
-    (track, i) =>
-      `[\\${track.id}, ${i}, [${track.notes.map((note) => `[${note.start}, ${note.midi}, ${note.length}, ${note.velocity}]`).join(',')}]]`,
-  );
-  const strips = project.tracks.map(
-    (track, i) =>
-      `~strips[${i}].set(\\level, ${track.muted ? 0 : track.volume}, \\reverb, ${track.reverb});`,
-  );
-  // Muted notes do not create voices. Strip state also changes existing sustained notes.
-  return `~tracks = [${tracks.join(',')}]; ~muted = [${project.tracks.map((t) => t.muted).join(',')}]; ~clock.tempo = ${project.tempo / 60}; ${strips.join('\n')}`;
+function noteData(track) {
+  return `[${(track.muted ? [] : track.notes).map((note) => `[${note.start}, ${note.midi}, ${note.length}, ${note.velocity}]`).join(',')}]`;
+}
+
+// Stage one bounded command per track, then swap the complete sequence atomically.
+// Channels are keyed by ID so adding instruments never reroutes existing voices.
+export function projectCode(project, playing = false) {
+  return [
+    `~nextTracks = Array.newClear(${project.tracks.length});`,
+    ...project.tracks.map(
+      (track, index) => `~nextTracks[${index}] = [\\${track.id}, ${noteData(track)}];`,
+    ),
+    // Reclaim unused routing before allocating the next section. During a loop,
+    // keep retiring channels until Stop so release voices never hit reused buses.
+    ...(playing
+      ? []
+      : [
+          `
+~channels.keys.asArray.do({ |id|
+    if(~nextTracks.any({ |track| (track[0] == id) and: { track[1].notEmpty } }).not, {
+        ~freeChannel.(~channels.removeAt(id));
+    });
+});`,
+        ]),
+    ...project.tracks.map(
+      (track) => `
+{
+    var channel = ~channels[\\${track.id}];
+    if(channel.isNil and: { ${!track.muted && track.notes.length > 0} }, {
+        channel = ~newChannel.(${track.volume}, ${track.reverb});
+        ~channels[\\${track.id}] = channel;
+    });
+    if(channel.notNil, { channel[1].set(\\level, ${track.muted ? 0 : track.volume}, \\reverb, ${track.reverb}); });
+}.value;`,
+    ),
+    `~tracks = ~nextTracks; ~clock.tempo = ${project.tempo / 60};`,
+  ];
 }
 
 export function playbackCode(project, captureId = null) {
@@ -122,13 +166,12 @@ export function playbackCode(project, captureId = null) {
     `
     }
     ${captureId === null ? 'loop {' : `${STEPS}.do({`}
-        ~tracks.do({ |track, index|
-            if(~muted[index].not, {
-                track[2].do({ |note|
+        ~tracks.do({ |track|
+                track[1].do({ |note|
                     if(note[0] == ~step, {
                         var voice;
                         s.makeBundle(s.latency, {
-                            voice = Synth(track[0], [\\out, ~buses[track[1]], \\freq, note[1].midicps, \\amp, note[3] * 0.14], ~voices);
+                            voice = Synth(track[0], [\\out, ~channels[track[0]][0], \\freq, note[1].midicps, \\amp, note[3] * 0.14], ~voices);
                         });
                         ~clock.sched(note[2] / 4, {
                             s.makeBundle(s.latency, { voice.set(\\gate, 0); });
@@ -136,7 +179,6 @@ export function playbackCode(project, captureId = null) {
                         });
                     });
                 });
-            });
         });
         ~reply.sendMsg("/scmaker/step", ~secret, ~step);
         ~step = (~step + 1) % ${STEPS};
@@ -168,26 +210,23 @@ export function songInstruments(project) {
 }
 
 export function songSetupCode(project) {
-  const count = project.sections.reduce((sum, section) => sum + section.tracks.length, 0);
   return `
 ~clearSong.();
-~strips.do({ |strip| strip.set(\\level, 0); });
+~channels.values.do({ |channel| ~freeChannel.(channel); });
+~channels.clear;
+~preview[1].set(\\level, 0);
 ~songSections = Array.newClear(${project.sections.length});
-~songBuses = Array.fill(${count}, { Bus.audio(s, 2) });
-~songStrips = Array.fill(${count}, { |i| Synth(\\scmakerStrip, [\\inbus, ~songBuses[i], \\out, ~mixBus], ~fxGroup) });
 `;
 }
 
-export function songSectionCode(tracks, sectionIndex, busOffset) {
-  const data = tracks.map(
-    (track, i) =>
-      `[\\${track.id}, ${busOffset + i}, [${(track.muted ? [] : track.notes).map((note) => `[${note.start}, ${note.midi}, ${note.length}, ${note.velocity}]`).join(',')}]]`,
-  );
-  const strips = tracks.map(
-    (track, i) =>
-      `~songStrips[${busOffset + i}].set(\\level, ${track.muted ? 0 : track.volume}, \\reverb, ${track.reverb});`,
-  );
-  return `~songSections[${sectionIndex}] = [${data.join(',')}]; ${strips.join('\n')}`;
+export function songSectionCode(tracks, sectionIndex) {
+  return [
+    `~songSections[${sectionIndex}] = Array.newClear(${tracks.length});`,
+    ...tracks.map(
+      (track, index) =>
+        `~songSections[${sectionIndex}][${index}] = [\\${track.id}, ${noteData(track)}, ${track.volume}, ${track.reverb}];`,
+    ),
+  ];
 }
 
 export function songPlaybackCode(project, id) {
@@ -198,21 +237,32 @@ export function songPlaybackCode(project, id) {
         `[${project.sections.findIndex((section) => section.id === entry.sectionId)}, ${position}, ${repeat + 1}]`,
     ),
   );
-  const release = Math.max(
-    ...project.sections.flatMap((section) => section.tracks.map((track) => track.recipe.release)),
+  const releases = project.sections.map((section) =>
+    section.tracks.reduce((max, track) => Math.max(max, track.recipe.release), 0),
   );
+  const release = Math.max(...releases);
   return `
 ~clock.stop;
 ~clock = TempoClock.new(${project.tempo / 60}, 0, nil, 4096);
 ~routine = Routine({
+    try {
     [${order.join(',')}].do({ |entry|
+        var tracks = ~songSections[entry[0]];
+        var channels = tracks.collect({ |track|
+            var channel;
+            if(track[1].notEmpty, {
+                channel = ~newChannel.(track[2], track[3]);
+                ~songChannels.add(channel);
+            });
+            channel
+        });
         ${STEPS}.do({ |step|
-            ~songSections[entry[0]].do({ |track|
-                track[2].do({ |note|
+            tracks.do({ |track, index|
+                track[1].do({ |note|
                     if(note[0] == step, {
                         var voice;
                         s.makeBundle(s.latency, {
-                            voice = Synth(track[0], [\\out, ~songBuses[track[1]], \\freq, note[1].midicps, \\amp, note[3] * 0.14], ~voices);
+                            voice = Synth(track[0], [\\out, channels[index][0], \\freq, note[1].midicps, \\amp, note[3] * 0.14], ~voices);
                         });
                         ~clock.sched(note[2] / 4, {
                             s.makeBundle(s.latency, { voice.set(\\gate, 0); });
@@ -224,22 +274,31 @@ export function songPlaybackCode(project, id) {
             ~reply.sendMsg("/scmaker/songStep", ~secret, ${id}, step, entry[1], entry[2]);
             0.25.wait;
         });
+        // Retiring strips stay alive for release and reverb, not for the whole song.
+        SystemClock.sched([${releases.join(',')}][entry[0]] + 3 + s.latency, {
+            ~releaseSongChannels.(channels.reject(_.isNil));
+            nil
+        });
     });
     ~reply.sendMsg("/scmaker/songTail", ~secret, ${id});
     ((${release} + 3 + s.latency) * ~clock.tempo).wait;
     ~voices.freeAll;
     ~clearSong.();
     ~reply.sendMsg("/scmaker/songFinished", ~secret, ${id});
+    } { |error|
+        ~reply.sendMsg("/scmaker/audioError", ~secret, error.errorString);
+        error.reportError;
+    };
 }).play(~clock);
 `;
 }
 
 export function auditionCode(midi, reverb) {
   return `
-~strips[4].set(\\level, 0.7, \\reverb, ${reverb});
+~preview[1].set(\\level, 0.7, \\reverb, ${reverb});
 {
     var voice = Synth(\\t_preview, [
-        \\out, ~buses[4], \\freq, ${midi}.midicps, \\amp, 0.12
+        \\out, ~preview[0], \\freq, ${midi}.midicps, \\amp, 0.12
     ], ~voices).register(true);
     SystemClock.sched(0.65, {
         if(voice.isPlaying, { voice.set(\\gate, 0); });
@@ -260,13 +319,13 @@ if(~live[${scString(voiceId)}.asSymbol].notNil, {
 
 export function noteOnCode(track, midi, voiceId) {
   return `
-~strips[4].set(\\level, ${track.volume}, \\reverb, ${track.reverb});
+~preview[1].set(\\level, ${track.volume}, \\reverb, ${track.reverb});
 ${noteOffCode(voiceId)}
 if(~captureActive and: { ~captureTrack == \\${track.id} }, {
     ~captureHeld[${scString(voiceId)}.asSymbol] = [${midi}, ~clock.beats];
 });
 ~live[${scString(voiceId)}.asSymbol] = Synth(\\${track.id}, [
-    \\out, ~buses[4], \\freq, ${midi}.midicps, \\amp, 0.14
+    \\out, ~preview[0], \\freq, ${midi}.midicps, \\amp, 0.14
 ], ~voices).register(true);
 `;
 }

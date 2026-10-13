@@ -13,7 +13,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const { server, engine, dataDir } = await createApp();
   const port = Number(process.env.PORT || 3210);
   server.listen(port, '127.0.0.1', () => {
-    console.log(`SCMaker: http://127.0.0.1:${server.address().port}`);
+    console.log(
+      `SCMaker: http://127.0.0.1:${/** @type {import('node:net').AddressInfo} */ (server.address()).port}`,
+    );
     console.log(`Projects and recordings: ${dataDir}`);
   });
   server.on('error', async (error) => {

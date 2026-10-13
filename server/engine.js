@@ -27,14 +27,18 @@ export { bootstrap, scString } from './supercollider.js';
 // All interpolated code comes from validated numeric recipes or generated identifiers.
 const executeFile = promisify(execFile);
 const hasCommand = (name) => spawnSync('which', [name], { stdio: 'ignore' }).status === 0;
-async function freePort() {
-  const socket = dgram.createSocket('udp4');
-  await new Promise((resolve, reject) => {
+/** @returns {Promise<void>} */
+function bindLoopback(socket) {
+  return new Promise((resolve, reject) => {
     socket.once('error', reject);
     socket.bind(0, '127.0.0.1', resolve);
   });
+}
+async function freePort() {
+  const socket = dgram.createSocket('udp4');
+  await bindLoopback(socket);
   const port = socket.address().port;
-  await new Promise((resolve) => socket.close(resolve));
+  await /** @type {Promise<void>} */ (new Promise((resolve) => socket.close(resolve)));
   return port;
 }
 
@@ -53,6 +57,7 @@ export class Engine {
   constructor(directory) {
     this.directory = directory;
     this.token = randomBytes(24).toString('hex');
+    /** @type {import('../shared/playback.js').EngineStatus['state']} */
     this.state = 'starting';
     this.error = null;
     this.audioError = null;
@@ -62,8 +67,10 @@ export class Engine {
     this.step = -1;
     this.playing = false;
     this.recording = null;
+    /** @type {import('../shared/playback.js').NoteCapture | null} */
     this.noteCapture = null;
     this.captureSequence = 0;
+    /** @type {import('../shared/playback.js').Song | null} */
     this.song = null;
     this.songSequence = 0;
     this.capturePrefix = randomBytes(8).toString('hex');
@@ -81,10 +88,7 @@ export class Engine {
         throw new Error('sclang was not found. Install SuperCollider, then restart the app.');
       await mkdir(this.directory, { recursive: true });
       this.socket = dgram.createSocket('udp4');
-      await new Promise((resolve, reject) => {
-        this.socket.once('error', reject);
-        this.socket.bind(0, '127.0.0.1', resolve);
-      });
+      await bindLoopback(this.socket);
       const replyPort = this.socket.address().port;
       this.langPort = await freePort();
       const audioPort = await freePort();
@@ -92,6 +96,7 @@ export class Engine {
       await writeFile(scriptPath, bootstrap({ token: this.token, replyPort, audioPort }), {
         mode: 0o600,
       });
+      /** @type {Promise<void>} */
       const ready = new Promise((resolve, reject) => {
         this.readyResolve = resolve;
         this.readyReject = reject;
@@ -466,6 +471,7 @@ export class Engine {
     }
     return outputName;
   }
+  /** @returns {import('../shared/playback.js').EngineStatus} */
   status() {
     return {
       state: this.state,

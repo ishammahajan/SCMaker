@@ -1,3 +1,5 @@
+// Element types depend on index.html IDs, so callers use the properties they expect.
+/** @type {(id: string) => any} */
 export const $ = (id) => document.getElementById(id);
 
 export function element(tag, className, text) {

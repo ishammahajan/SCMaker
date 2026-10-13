@@ -1,6 +1,10 @@
 import { isCapturing, isSongActive } from '../../shared/playback.js';
 
 // Derive transport labels and control states from engine status without touching the DOM.
+/**
+ * @param {import('../../shared/playback.js').EngineStatus} engine
+ * @param {{ songScope: boolean, songBusy: boolean, captureBusy: boolean, recordingBusy: boolean }} flags
+ */
 export function transportView(engine, { songScope, songBusy, captureBusy, recordingBusy }) {
   const ready = engine.state === 'ready';
   const activeSong = isSongActive(engine.song);
@@ -40,6 +44,10 @@ export function transportView(engine, { songScope, songBusy, captureBusy, record
   };
 }
 
+/**
+ * @param {import('../../shared/playback.js').Song | null} song
+ * @param {number} step
+ */
 export function songPositionText(song, step) {
   if (!song) return '';
   if (song.phase === 'playing') {

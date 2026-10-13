@@ -128,13 +128,15 @@ export function createSoundEditor({
   for (const id of ['prompt-provider', 'prompt-mode', 'prompt']) {
     $(id).addEventListener('input', discardDraft);
   }
-  document.querySelectorAll('[data-prompt]').forEach((button) => {
-    button.onclick = () => {
-      discardDraft();
-      $('prompt').value = button.dataset.prompt;
-      $('prompt').focus();
-    };
-  });
+  /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('[data-prompt]')).forEach(
+    (button) => {
+      button.onclick = () => {
+        discardDraft();
+        $('prompt').value = button.dataset.prompt;
+        $('prompt').focus();
+      };
+    },
+  );
   $('apply-draft').onclick = () => {
     if (!draft) return;
     getCurrentTrack().recipe = structuredClone(draft.recipe);

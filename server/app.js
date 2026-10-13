@@ -14,6 +14,13 @@ import { createLlmInstruments } from './llm-instruments.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 
+/**
+ * @param {object} [options]
+ * @param {string} [options.dataDir]
+ * @param {Engine} [options.engine] Replaces the SuperCollider engine in tests.
+ * @param {boolean} [options.startEngine]
+ * @param {ReturnType<typeof createLlmInstruments>} [options.generateInstrument]
+ */
 export async function createApp({
   dataDir = process.env.SCMAKER_DATA_DIR || path.join(root, 'data'),
   engine: providedEngine,
@@ -30,7 +37,11 @@ export async function createApp({
   const server = http.createServer(async (request, response) => {
     setSecurityHeaders(response);
     try {
-      const origin = localOrigin(request, response, server.address()?.port);
+      const origin = localOrigin(
+        request,
+        response,
+        /** @type {import('node:net').AddressInfo} */ (server.address())?.port,
+      );
       if (!origin) return;
       const { pathname } = new URL(request.url, origin);
       if (request.method === 'POST') {

@@ -1,6 +1,24 @@
 import { assert, number } from './validation.js';
 import { validateGraph } from './synthesis-graph.js';
 
+/**
+ * @typedef {object} SynthesisNode
+ * @property {string} op
+ * @property {(number | string)[]} args Constants, named controls, or earlier node references.
+ *
+ * @typedef {object} Recipe
+ * @property {string} kind One of KINDS.
+ * @property {string} wave One of WAVES.
+ * @property {number} brightness
+ * @property {number} drive
+ * @property {number} attack
+ * @property {number} decay
+ * @property {number} sustain
+ * @property {number} release
+ * @property {number} detune
+ * @property {{ nodes: SynthesisNode[] }} [graph] Present only for custom instruments.
+ */
+
 export const KINDS = ['bass', 'pad', 'pluck', 'kick', 'snare', 'hat', 'custom'];
 export const WAVES = ['saw', 'sine', 'pulse', 'triangle'];
 export const CONTROLS = {
@@ -11,6 +29,7 @@ export const CONTROLS = {
   detune: { label: 'Detune', min: 0, max: 0.03, step: 0.001 },
 };
 
+/** @returns {Recipe} */
 export function preset(kind = 'bass') {
   const base = {
     kind,
@@ -78,13 +97,14 @@ export function preset(kind = 'bass') {
   };
 }
 
+/** @returns {Recipe} */
 export function validateRecipe(value) {
   assert(value && typeof value === 'object', 'Invalid sound recipe.');
   assert(
     KINDS.includes(value.kind) && WAVES.includes(value.wave),
     'Unknown instrument or oscillator.',
   );
-  const recipe = { kind: value.kind, wave: value.wave };
+  const recipe = /** @type {Recipe} */ ({ kind: value.kind, wave: value.wave });
   for (const [key, { min, max }] of Object.entries(CONTROLS))
     recipe[key] = number(value[key], min, max, key);
   recipe.decay = number(value.decay, 0.01, 4, 'decay');

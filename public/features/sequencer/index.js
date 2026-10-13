@@ -136,9 +136,9 @@ export function createSequencer({ state, notify, markDirty, renderTracks }) {
     const step = state.engine.playing && !otherSection ? state.engine.step : -1;
     $('playhead').hidden = step < 0;
     if (step >= 0) $('playhead').style.gridColumn = step + 2;
-    document
-      .querySelectorAll('.step-label[data-step]')
-      .forEach((node) => node.classList.toggle('current', Number(node.dataset.step) === step));
+    /** @type {NodeListOf<HTMLElement>} */ (
+      document.querySelectorAll('.step-label[data-step]')
+    ).forEach((node) => node.classList.toggle('current', Number(node.dataset.step) === step));
   }
 
   function renderPitchRows(track) {

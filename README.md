@@ -136,6 +136,7 @@ npm test                         # Portable model, validation, OSC, and HTTP tes
 npm run test:audio                # Actual SuperCollider synthesis and non-silent stereo WAV
 npx playwright install chromium  # One-time browser installation
 npm run test:browser              # Browser workflow, recording, reload, mobile, and keyboard checks
+npm run typecheck                # JSDoc type checking; no build output
 npm run format:check
 ```
 
@@ -146,7 +147,7 @@ The audio and browser integration checks need SuperCollider and a working audio 
 Start with `public/app.js` for browser composition and `server/app.js` for HTTP
 composition. Browser features, shared music-domain logic, server responsibilities,
 and component styles live in separate modules. The runtime remains dependency-free,
-with no build step.
+with no build step. TypeScript checks JSDoc annotations in place as a development tool.
 
 See [Code structure](docs/architecture.md) for the module map, dependency flow,
 state ownership, and verification boundaries.

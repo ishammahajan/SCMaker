@@ -178,10 +178,10 @@ export function createArrangement({ state, action, markDirty, selectSection, sto
     markDirty();
     render();
   };
-  for (const [id, delta] of [
+  for (const [id, delta] of /** @type {const} */ ([
     ['entry-up', -1],
     ['entry-down', 1],
-  ]) {
+  ])) {
     $(id).onclick = () => {
       const order = state.project.arrangement;
       const target = entryIndex + delta;

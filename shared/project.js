@@ -2,6 +2,57 @@ import { preset, validateRecipe } from './instruments.js';
 import { synthDef } from './synthdef.js';
 import { assert, number, text } from './validation.js';
 
+/**
+ * @typedef {import('./instruments.js').Recipe} Recipe
+ *
+ * @typedef {object} Note
+ * @property {string} id
+ * @property {number} start Sixteenth step from 0 to STEPS - 1.
+ * @property {number} length Whole steps.
+ * @property {number} midi
+ * @property {number} velocity
+ *
+ * @typedef {object} SoundVersion
+ * @property {string} prompt
+ * @property {Recipe} recipe
+ * @property {string} code Canonical SynthDef generated from the recipe.
+ *
+ * @typedef {object} Track
+ * @property {string} id
+ * @property {string} name
+ * @property {Recipe} recipe
+ * @property {string} code
+ * @property {number} volume
+ * @property {number} reverb
+ * @property {boolean} muted
+ * @property {Note[]} notes
+ * @property {SoundVersion[]} history
+ *
+ * @typedef {object} LoopProject Version-one loop, also used for section snapshots.
+ * @property {1} version
+ * @property {string} name
+ * @property {number} tempo
+ * @property {Track[]} tracks
+ *
+ * @typedef {object} Section
+ * @property {string} id
+ * @property {string} name
+ * @property {Track[]} tracks
+ *
+ * @typedef {object} ArrangementEntry
+ * @property {string} sectionId
+ * @property {number} repeats
+ *
+ * @typedef {object} SongProject
+ * @property {2} version
+ * @property {string} name
+ * @property {number} tempo
+ * @property {Section[]} sections
+ * @property {ArrangementEntry[]} arrangement
+ *
+ * @typedef {LoopProject | SongProject} Project
+ */
+
 export const STEPS = 32;
 export const MIN_MIDI = 24;
 export const MAX_MIDI = 96;
@@ -12,6 +63,7 @@ export const MAX_SECTIONS = 16;
 export const MAX_ARRANGEMENT = 32;
 const clone = (value) => structuredClone(value);
 
+/** @returns {SoundVersion} */
 function validateSnapshot(value, id) {
   assert(value && typeof value === 'object', 'Invalid sound version.');
   const recipe = validateRecipe(value.recipe);
@@ -23,8 +75,13 @@ function validateSnapshot(value, id) {
   return { prompt: text(value.prompt, 1000, 'version description'), recipe, code };
 }
 
+/** @returns {Project} */
 export function validateProject(value) {
-  if (value?.version === 2) return validateSong(value);
+  return value?.version === 2 ? validateSong(value) : validateLoop(value);
+}
+
+/** @returns {LoopProject} */
+function validateLoop(value) {
   assert(value && value.version === 1, 'Unsupported project format.');
   const name = text(value.name, 100, 'project name');
   const tempo = number(value.tempo, 40, 240, 'tempo');
@@ -89,6 +146,7 @@ export function validateProject(value) {
   return { version: 1, name, tempo, tracks };
 }
 
+/** @returns {SongProject} */
 function validateSong(value) {
   const name = text(value.name, 100, 'project name');
   const tempo = number(value.tempo, 40, 240, 'tempo');
@@ -106,7 +164,7 @@ function validateSong(value) {
     );
     ids.add(section.id);
     const sectionName = text(section.name, 60, 'section name');
-    const { tracks } = validateProject({ version: 1, name, tempo, tracks: section.tracks });
+    const { tracks } = validateLoop({ version: 1, name, tempo, tracks: section.tracks });
     return { id: section.id, name: sectionName, tracks };
   });
   assert(
@@ -125,6 +183,7 @@ function validateSong(value) {
 }
 
 // Legacy loops remain valid. The browser upgrades them without reinterpreting sounds.
+/** @returns {SongProject} */
 export function makeSong(value) {
   const project = validateProject(value);
   if (project.version === 2) return project;
@@ -137,6 +196,11 @@ export function makeSong(value) {
   };
 }
 
+/**
+ * @param {Project} project
+ * @param {string} sectionId
+ * @returns {LoopProject}
+ */
 export function sectionProject(project, sectionId) {
   if (project.version === 1) return project;
   const section = project.sections.find((section) => section.id === sectionId);
@@ -144,6 +208,7 @@ export function sectionProject(project, sectionId) {
   return { version: 1, name: project.name, tempo: project.tempo, tracks: section.tracks };
 }
 
+/** @returns {Track} */
 export function makeTrack(kind, id, name) {
   const recipe = preset(kind);
   const code = synthDef(id, recipe);
@@ -159,6 +224,7 @@ export function makeTrack(kind, id, name) {
     history: [{ prompt: `${kind} starting point`, recipe: clone(recipe), code }],
   };
 }
+/** @returns {Project} */
 export function defaultProject() {
   const bass = makeTrack('bass', 't_bass', 'Bass 01');
   bass.notes = [0, 6, 8, 14, 16, 22, 24, 28].map((start, i) => ({

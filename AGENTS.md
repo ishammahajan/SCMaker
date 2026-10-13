@@ -22,6 +22,7 @@ Use Node.js >=22 and native ES modules. Runtime has no npm dependencies. Formatt
 - `npm run test:audio`: actual audio-engine integration, requires SuperCollider and working audio.
 - `npm run test:browser`: Playwright on port 3211 with isolated data, also requires audio.
 - `npm run format` and `npm run format:check`: Prettier.
+- `npm run typecheck`: TypeScript checks JSDoc in `shared/`, `server/`, and `public/` (`tsconfig.json`, non-strict). Shared data shapes are typedefs in `shared/project.js` and `shared/playback.js`.
 
 The audio and browser checks produce a short sound. Do not use the user's saved project for tests. Linux uses `pw-jack` automatically when available; `SCMAKER_USE_PW_JACK=0` disables this.
 

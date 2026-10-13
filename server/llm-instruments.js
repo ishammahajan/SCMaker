@@ -52,7 +52,7 @@ export function createLlmInstruments({
         signal: AbortSignal.timeout(120000),
       });
       if (!response.ok) {
-        await response.body?.cancel().catch(() => { });
+        await response.body?.cancel().catch(() => {});
         throw new Error(
           `OpenCode Go request failed (HTTP ${response.status}). Check your API key, subscription and model access.`,
         );
